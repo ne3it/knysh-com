@@ -1,0 +1,354 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* === WB Color Palette === */
+    --primary: #cb1187;
+    --primary-foreground: #ffffff;
+    --primary-hover: #b00e76;
+    --primary-light: #fce7f3;
+
+    --background: 0 0% 100%;
+    --foreground: 220 31% 12%;
+    --border: 220 31% 91%;
+    --input: 220 31% 91%;
+    --ring: 330 85% 39%;
+    --muted: 220 31% 96%;
+    --muted-foreground: 220 31% 38%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 31% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 31% 12%;
+    --accent: 330 85% 39%;
+    --accent-foreground: 210 21% 98%;
+    --destructive: 0 84% 50%;
+    --destructive-foreground: 210 21% 98%;
+
+    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'Fira Code', 'FiraMono', 'Monaco', 'Consolas', monospace;
+  }
+
+  .dark {
+    --background: 220 27% 6%;
+    --foreground: 210 20% 98%;
+    --border: 220 31% 20%;
+    --input: 220 31% 20%;
+    --ring: 330 85% 60%;
+    --muted: 220 31% 12%;
+    --muted-foreground: 210 20% 60%;
+    --card: 220 27% 10%;
+    --card-foreground: 210 20% 98%;
+    --popover: 220 27% 10%;
+    --popover-foreground: 210 20% 98%;
+    --primary: #f17ac4;
+    --primary-foreground: #121212;
+    --primary-hover: #f9a8d4;
+    --primary-light: #42223c;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'liga' 1, 'calt' 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.2);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* === Scroll-triggered animations === */
+  .animate-fade-in-up {
+    opacity: 0;
+    transform: translateY(30px);
+    animation: fade-in-up 0.8s ease-out forwards;
+  }
+
+  .animate-fade-in-down {
+    opacity: 0;
+    transform: translateY(-30px);
+    animation: fade-in-down 0.8s ease-out forwards;
+  }
+
+  .animate-fade-in {
+    opacity: 0;
+    animation: fade-in 0.6s ease-out forwards;
+  }
+
+  .animate-slide-in-right {
+    opacity: 0;
+    transform: translateX(-20px);
+    animation: slide-in-right 0.6s ease-out forwards;
+  }
+
+  .animate-slide-in-left {
+    opacity: 0;
+    transform: translateX(20px);
+    animation: slide-in-left 0.6s ease-out forwards;
+  }
+
+  .animate-scale-in {
+    opacity: 0;
+    transform: scale(0.9);
+    animation: scale-in 0.5s ease-out forwards;
+  }
+
+  .animate-dropdown-enter {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+    animation: dropdown-enter 0.2s ease-out forwards;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse-slow 4s ease-in-out infinite;
+  }
+
+  .animate-pulse-soft {
+    animation: pulse-soft 2.5s ease-in-out infinite;
+  }
+
+  /* Stagger delays */
+  .stagger-1 { animation-delay: 100ms; }
+  .stagger-2 { animation-delay: 200ms; }
+  .stagger-3 { animation-delay: 300ms; }
+  .stagger-4 { animation-delay: 400ms; }
+  .stagger-5 { animation-delay: 500ms; }
+  .stagger-6 { animation-delay: 600ms; }
+  .stagger-7 { animation-delay: 700ms; }
+  .stagger-8 { animation-delay: 800ms; }
+
+  /* === Keyframes === */
+  @keyframes fade-in-up {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in-down {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in {
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-in-right {
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slide-in-left {
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes scale-in {
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes dropdown-enter {
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes dropdown-enter-smooth {
+    from {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes pulse-slow {
+    0%, 100% {
+      opacity: 0.3;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(1.05);
+    }
+  }
+
+  @keyframes pulse-soft {
+    0%, 100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+
+  /* === Hover utilities === */
+  .hover-lift {
+    @apply transition-transform duration-300 hover:-translate-y-1;
+  }
+
+  .hover-glow-primary {
+    @apply transition-all duration-300 hover:shadow-[0_0_30px_rgba(203,17,135,0.4)];
+  }
+
+  .hover-glow-violet {
+    @apply transition-all duration-300 hover:shadow-[0_0_30px_rgba(139,92,246,0.4)];
+  }
+
+  .hover-glow-blue {
+    @apply transition-all duration-300 hover:shadow-[0_0_30px_rgba(0,191,255,0.4)];
+  }
+
+  /* === Scrollbar for dropdown === */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 2px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  /* === Text gradient utility === */
+  .text-gradient {
+    @apply bg-gradient-to-r from-white via-white/80 to-white/60 bg-clip-text text-transparent;
+  }
+
+  .text-gradient-primary {
+    @apply bg-gradient-to-r from-[#CB1187] to-[#F17AC4] bg-clip-text text-transparent;
+  }
+
+  /* === Glass morphism === */
+  .glass {
+    @apply bg-white/5 backdrop-blur-sm border border-white/10;
+  }
+
+  .glass-dark {
+    @apply bg-neutral-950/50 backdrop-blur-sm border border-neutral-800;
+  }
+
+  /* === Smooth transitions === */
+  .transition-smooth {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .transition-smooth-fast {
+    @apply transition-all duration-200 ease-out;
+  }
+
+  .transition-smooth-slow {
+    @apply transition-all duration-500 ease-out;
+  }
+}
+
+@layer components {
+  /* === Button variants === */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white
+           bg-[#CB1187] hover:bg-[#B00E76] transition-all duration-300
+           hover:shadow-[0_0_30px_rgba(203,17,135,0.5)] hover:-translate-y-1
+           focus:outline-none focus:ring-2 focus:ring-[#CB1187]/50 focus:ring-offset-2 focus:ring-offset-black;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white/90
+           bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-sm
+           transition-all duration-300 hover:border-white/20 hover:-translate-y-1;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white/70
+           hover:text-white hover:bg-white/5 transition-all duration-200;
+  }
+
+  /* === Card base === */
+  .card-base {
+    @apply rounded-2xl bg-neutral-950/50 backdrop-blur-sm border border-neutral-800
+           transition-all duration-300 hover:border-neutral-700 hover:bg-neutral-900/80
+           hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)] hover:-translate-y-1;
+  }
+
+  .card-hover-glow {
+    @apply hover:ring-1 hover:ring-[var(--card-glow-color)]/30 transition-all duration-300;
+  }
+
+  /* === Link base === */
+  .link-hover {
+    @apply text-white/70 hover:text-white transition-colors duration-200;
+  }
+
+  .link-underline {
+    @apply relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5
+           after:bg-current after:transition-all after:duration-300
+           hover:after:w-full;
+  }
+}

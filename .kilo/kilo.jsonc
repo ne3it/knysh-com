@@ -1,0 +1,13 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "indexing": {
+    "enabled": true,
+    "provider": "ollama",
+    "model": "qllama/bge-small-en-v1.5",
+    "dimension": 384,
+    "vectorStore": "lancedb",
+    "ollama": {
+      "baseUrl": "http://127.0.0.1:11434"
+    }
+  }
+}
