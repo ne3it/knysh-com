@@ -148,25 +148,27 @@ export function SectionSidebar({ sectionId, className, forceExpanded = false, on
               <div
                 id={`group-${group.id}`}
                 className={cn(
-                  'overflow-hidden transition-all duration-200 ease-out',
+                  'grid transition-all duration-200 ease-out',
                   sidebarCollapsed && 'hidden',
-                  isCollapsed && 'max-h-0 opacity-0 pointer-events-none',
-                  !isCollapsed && 'max-h-96 opacity-100'
+                  isCollapsed ? 'grid-rows-[0fr] opacity-0 pointer-events-none' : 'grid-rows-[1fr] opacity-100'
                 )}
                 role="region"
                 aria-label={`${group.label} функции`}
               >
-                <ul className="space-y-1" role="list">
-                  {groupFeatures.map((feature) => (
-                    <FeatureItem
-                      key={feature.id}
-                      feature={feature}
-                      isActive={currentFeature === feature.id}
-                      sidebarCollapsed={sidebarCollapsed}
-                      onClick={() => handleSelectFeature(feature.id)}
-                    />
-                  ))}
-                </ul>
+                {/* Inner wrapper carries overflow-hidden so the height animates without clipping the open list */}
+                <div className="overflow-hidden">
+                  <ul className="space-y-1" role="list">
+                    {groupFeatures.map((feature) => (
+                      <FeatureItem
+                        key={feature.id}
+                        feature={feature}
+                        isActive={currentFeature === feature.id}
+                        sidebarCollapsed={sidebarCollapsed}
+                        onClick={() => handleSelectFeature(feature.id)}
+                      />
+                    ))}
+                  </ul>
+                </div>
               </div>
             </div>
           );
