@@ -26,9 +26,14 @@ export const CUSTOM_TARIFF_ID = 'log_custom';
 
 export interface LogisticsOption {
   id: string;
-  label: string;
+  /** Название категории товара (логистический класс WB) */
+  name: string;
+  /** Прямая доставка к клиенту, BYN */
   box: number;
+  /** Обратная логистика (возврат), BYN */
   return: number;
+  /** Группа для <optgroup> */
+  group: string;
 }
 
 export interface LogisticsGroup {
@@ -36,62 +41,90 @@ export interface LogisticsGroup {
   options: LogisticsOption[];
 }
 
-export const LOGISTICS_GROUPS: LogisticsGroup[] = [
-  {
-    group: 'Стандартные габариты',
-    options: [
-      {
-        id: 'clothes',
-        label: 'Одежда и обувь (Доставка: 2.2 BYN, Возврат: 1.8 BYN)',
-        box: 2.2,
-        return: 1.8,
-      },
-      {
-        id: 'cosmetics',
-        label: 'Косметика, бытовая химия, гаджеты (Доставка: 1.9 BYN, Возврат: 1.8 BYN)',
-        box: 1.9,
-        return: 1.8,
-      },
-      {
-        id: 'home',
-        label: 'Товары для дома, хозтовары (Доставка: 2.5 BYN, Возврат: 2.0 BYN)',
-        box: 2.5,
-        return: 2.0,
-      },
-    ],
-  },
-  {
-    group: 'Крупногабаритные товары (КГТ)',
-    options: [
-      {
-        id: 'furniture',
-        label: 'Мебель и крупная техника (Доставка: 12 BYN, Возврат: 10 BYN)',
-        box: 12.0,
-        return: 10.0,
-      },
-    ],
-  },
-  {
-    group: 'УНИВЕРСАЛЬНЫЙ РУЧНОЙ ВВОД',
-    options: [
-      {
-        id: CUSTOM_TARIFF_ID,
-        label: 'Кастомный тариф (ввести стоимость логистики вручную)',
-        box: 2.5,
-        return: 2.0,
-      },
-    ],
-  },
-];
+const slug = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/[^a-zа-я0-9]+/gi, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 32);
 
-export const DEFAULT_LOGISTICS_ID = 'clothes';
+/** Ультимативный список базовых тарифов WB для РБ по логистическим классам */
+export const LOGISTICS_TARIFFS: LogisticsOption[] = [
+  // ОДЕЖДА И ОБУВЬ (самый высокий процент возвратов)
+  { name: 'Одежда верхняя (куртки, пальто, пуховики)', box: 2.8, return: 2.0, group: 'Одежда и обувь' },
+  { name: 'Одежда легкая (платья, костюмы, брюки, джинсы)', box: 2.2, return: 1.8, group: 'Одежда и обувь' },
+  { name: 'Трикотаж и базовая одежда (футболки, топы, худи)', box: 1.9, return: 1.8, group: 'Одежда и обувь' },
+  { name: 'Нижнее белье, боди, купальники', box: 1.6, return: 1.5, group: 'Одежда и обувь' },
+  { name: 'Обувь взрослая в коробках (кроссовки, ботинки, туфли)', box: 2.6, return: 2.0, group: 'Одежда и обувь' },
+  { name: 'Чулочно-носочные изделия и аксессуары', box: 1.4, return: 1.4, group: 'Одежда и обувь' },
+
+  // ДЕТСКИЕ ТОВАРЫ
+  { name: 'Детская одежда и трикотаж', box: 1.8, return: 1.6, group: 'Детские товары' },
+  { name: 'Детская обувь', box: 2.1, return: 1.8, group: 'Детские товары' },
+  { name: 'Игрушки крупные (конструкторы, треки, кукольные дома)', box: 3.5, return: 2.5, group: 'Детские товары' },
+  { name: 'Игрушки малые и настольные игры', box: 1.8, return: 1.5, group: 'Детские товары' },
+  { name: 'Товары для новорожденных, подгузники, пеленки', box: 2.5, return: 2.0, group: 'Детские товары' },
+
+  // КРАСОТА, ЗДОРОВЬЕ И ГИГИЕНА
+  { name: 'Парфюмерия, духи, туалетная вода', box: 1.7, return: 1.6, group: 'Красота и здоровье' },
+  { name: 'Косметика уходовая (кремы, маски, шампуни)', box: 1.8, return: 1.6, group: 'Красота и здоровье' },
+  { name: 'Декоративная косметика (тушь, помады, тени)', box: 1.3, return: 1.3, group: 'Красота и здоровье' },
+  { name: 'БАДы, витамины, спортивное питание', box: 1.5, return: 1.5, group: 'Красота и здоровье' },
+  { name: 'Средства личной гигиены (зубные пасты, салфетки)', box: 1.6, return: 1.5, group: 'Красота и здоровье' },
+
+  // ЭЛЕКТРОНИКА И БЫТОВАЯ ТЕХНИКА
+  { name: 'Малая бытовая техника (чайники, блендеры, фены)', box: 3.2, return: 2.4, group: 'Электроника и техника' },
+  { name: 'Гаджеты (смартфоны, смарт-часы, планшеты, наушники)', box: 1.9, return: 1.8, group: 'Электроника и техника' },
+  { name: 'Аксессуары для электроники (чехлы, кабели, повербанки)', box: 1.4, return: 1.4, group: 'Электроника и техника' },
+
+  // ДОМ, КУХНЯ И ХОЗТОВАРЫ
+  { name: 'Постельное белье и крупный домашний текстиль', box: 2.6, return: 2.0, group: 'Дом, кухня и ремонт' },
+  { name: 'Посуда кухонная (сковороды, кастрюли, наборы ножей)', box: 3.0, return: 2.2, group: 'Дом, кухня и ремонт' },
+  { name: 'Интерьерный декор (свечи, картины, вазы, диффузоры)', box: 2.0, return: 1.7, group: 'Дом, кухня и ремонт' },
+  { name: 'Бытовая химия (канистры гелей, порошки от 3 кг)', box: 4.5, return: 3.5, group: 'Дом, кухня и ремонт' },
+  { name: 'Осветительные приборы, люстры, настольные лампы', box: 2.8, return: 2.0, group: 'Дом, кухня и ремонт' },
+  { name: 'Строительные ручные и электроинструменты', box: 3.5, return: 2.6, group: 'Дом, кухня и ремонт' },
+
+  // КРУПНОГАБАРИТНЫЕ ТОВАРЫ (КГТ)
+  { name: 'Мебель корпусная и мягкая (в разобранном виде)', box: 15.0, return: 12.0, group: 'Крупногабаритные товары (КГТ)' },
+  { name: 'Крупная бытовая техника (холодильники, стиральные машины)', box: 25.0, return: 20.0, group: 'Крупногабаритные товары (КГТ)' },
+
+  // ОСТАЛЬНЫЕ КАТЕГОРИИ
+  { name: 'Сумки, рюкзаки, чемоданы', box: 2.4, return: 1.9, group: 'Остальные категории' },
+  { name: 'Канцелярия, книги, товары для хобби и творчества', box: 1.5, return: 1.4, group: 'Остальные категории' },
+  { name: 'Зоотовары (лежанки, игрушки, аксессуары для животных)', box: 2.0, return: 1.7, group: 'Остальные категории' },
+  { name: 'Продукты питания сухие (бакалея, сладости, орехи)', box: 1.7, return: 1.5, group: 'Остальные категории' },
+  { name: 'Бижутерия и мелкие украшения', box: 1.2, return: 1.2, group: 'Остальные категории' },
+].map((option, index) => ({ ...option, id: `log_${index + 1}_${slug(option.name)}` }));
+
+/** Универсальный ручной ввод — всегда последняя опция списка */
+export const CUSTOM_TARIFF_OPTION: LogisticsOption = {
+  id: CUSTOM_TARIFF_ID,
+  name: 'Кастомный тариф (ввести стоимость логистики вручную)',
+  box: 2.5,
+  return: 2.0,
+  group: 'УНИВЕРСАЛЬНЫЙ РУЧНОЙ ВВОД',
+};
+
+/** Группировка тарифов по логистическим классам WB (порядок групп сохраняется) */
+const GROUP_ORDER: string[] = LOGISTICS_TARIFFS.reduce<string[]>((acc, option) => {
+  if (!acc.includes(option.group)) acc.push(option.group);
+  return acc;
+}, []);
+
+export const LOGISTICS_GROUPS: LogisticsGroup[] = GROUP_ORDER.map((group) => ({
+  group,
+  options: LOGISTICS_TARIFFS.filter((option) => option.group === group),
+}));
+
+export const ALL_LOGISTICS_OPTIONS: LogisticsOption[] = [...LOGISTICS_TARIFFS, CUSTOM_TARIFF_OPTION];
+
+export const DEFAULT_LOGISTICS_ID = LOGISTICS_TARIFFS[1].id;
 
 export function getLogisticsOption(id: string): LogisticsOption {
-  for (const group of LOGISTICS_GROUPS) {
-    const found = group.options.find((option) => option.id === id);
-    if (found) return found;
-  }
-  return LOGISTICS_GROUPS[0].options[0];
+  return (
+    ALL_LOGISTICS_OPTIONS.find((option) => option.id === id) ?? LOGISTICS_TARIFFS[0]
+  );
 }
 
 interface FormState {
@@ -339,12 +372,19 @@ export default function PvzReturnAnalyzer({ feature }: { feature: Feature }) {
                   <optgroup key={group} label={group}>
                     {options.map((option) => (
                       <option key={option.id} value={option.id}>
-                        {option.label}
+                        {option.name} (Доставка: {option.box} BYN, Возврат: {option.return} BYN)
                       </option>
                     ))}
                   </optgroup>
                 ))}
+                <optgroup label={CUSTOM_TARIFF_OPTION.group}>
+                  <option value={CUSTOM_TARIFF_OPTION.id}>{CUSTOM_TARIFF_OPTION.name}</option>
+                </optgroup>
               </select>
+              <p className="text-[11px] leading-tight text-neutral-400 mt-1">
+                Логистический класс WB: доставка {format(result.box)} BYN, возврат{' '}
+                {format(result.returnLogistics)} BYN
+              </p>
             </div>
 
             {isCustom && (
@@ -577,7 +617,11 @@ export default function PvzReturnAnalyzer({ feature }: { feature: Feature }) {
 
         {/* Разбор расчёта */}
         <div className="bg-white rounded-xl border border-neutral-200 p-6">
-          <h3 className="text-lg font-semibold text-neutral-900 mb-4">Разбор расчёта</h3>
+          <h3 className="text-lg font-semibold text-neutral-900 mb-1">Разбор расчёта</h3>
+          <p className="text-sm text-neutral-500 mb-4">
+            Категория: {getLogisticsOption(form.logistics).name}
+            {isCustom ? ' (тарифы введены вручную)' : ''}
+          </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-neutral-50 rounded-lg border border-neutral-200 p-3">
