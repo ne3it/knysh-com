@@ -23,7 +23,7 @@ import {
   Calculator,
   Scan,
 } from 'lucide-react';
-import { BarcodeIcon, PriceControlIcon, StockoutIcon, SEOCleanIcon, StartupPlannerIcon, CargoTruckIcon, TNVEDCheckIcon, SplitCalculatorIcon, EcoFeeIcon, MarkingCodeIcon, FsznBgsIcon, PvzReturnIcon } from './icons';
+import { BarcodeIcon, PriceControlIcon, StockoutIcon, SEOCleanIcon, StartupPlannerIcon, CargoTruckIcon, TNVEDCheckIcon, SplitCalculatorIcon, EcoFeeIcon, MarkingCodeIcon, FsznBgsIcon, TNVEDValidatorIcon, PvzReturnIcon } from './icons';
 
 export const ICON_MAP: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
   LayoutDashboard,
@@ -60,6 +60,7 @@ Barcode: BarcodeIcon,
      MarkingCode: MarkingCodeIcon,
       FsznBgs: FsznBgsIcon,
       PvzReturn: PvzReturnIcon,
+      TNVEDValidator: TNVEDValidatorIcon,
      };
 
 export function getIconComponent(name: string) {
@@ -174,6 +175,15 @@ const wbFsznBgs: Feature = {
   group: 'main',
 };
 
+const wbTNVEDValidator: Feature = {
+  id: 'tnved-validator',
+  label: 'Валидатор ТН ВЭД',
+  icon: 'TNVEDValidator',
+  description: 'Подбор кода ТН ВЭД и проверка ограничений ЕАЭС: маркировка, сертификация, Постановление № 713',
+  componentPath: '@/components/features/wb/TNVEDValidator',
+  group: 'main',
+};
+
 const wbPvzReturn: Feature = {
   id: 'pvz-return-analyzer',
   label: 'Анализ покатушек (ПВЗ)',
@@ -187,7 +197,7 @@ export const WB_FEATURE_GROUPS: FeatureGroup[] = [  {
     id: 'main',
     label: 'Основные',
     defaultOpen: true,
-    features: [wbCalculator, wbSEOClean, wbStockout, wbPriceControl713, wbLabelsGenerator, wbStartupPlanner, wbCargoCalculator, wbTNVEDCheck, wbSplitCalculator, wbEcoFeeCalculator, wbMarkingValidator, wbFsznBgs, wbPvzReturn],
+    features: [wbCalculator, wbSEOClean, wbStockout, wbPriceControl713, wbLabelsGenerator, wbStartupPlanner, wbCargoCalculator, wbTNVEDCheck, wbTNVEDValidator, wbSplitCalculator, wbEcoFeeCalculator, wbMarkingValidator, wbFsznBgs, wbPvzReturn],
   },
 ];
 

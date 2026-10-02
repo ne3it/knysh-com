@@ -260,6 +260,38 @@ export const FsznBgsIcon = ({ className = '', style, ...props }: SVGProps<SVGSVG
   </svg>
 );
 
+export const TNVEDValidatorIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#7b1fa2"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Classification tree / folders structure */}
+    <rect x="2" y="2.5" width="6" height="4" rx="1" />
+    <rect x="2" y="8.5" width="6" height="4" rx="1" />
+    <rect x="2" y="14.5" width="6" height="4" rx="1" />
+    <path d="M8 4.5h3" />
+    <path d="M8 10.5h3" />
+    <path d="M8 16.5h3" />
+    {/* Barcode under the magnifier */}
+    <path d="M12 6v11" />
+    <path d="M14 6v11" />
+    <path d="M16.5 6v11" />
+    <path d="M19 6v11" />
+    {/* Magnifier over the barcode */}
+    <circle cx="15.5" cy="14" r="4.2" />
+    <path d="M18.6 17.1L21.5 20" />
+  </svg>
+);
+
 export const PvzReturnIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"

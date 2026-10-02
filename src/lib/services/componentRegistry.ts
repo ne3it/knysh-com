@@ -46,6 +46,9 @@ export const COMPONENT_REGISTRY: Record<string, FeatureComponent> = {
    '@components/features/wb/TNVEDCheck': dynamic(() =>
     import('@/components/features/wb/TNVEDCheck').then(loadDefault)
   ),
+  '@components/features/wb/TNVEDValidator': dynamic(() =>
+    import('@/components/features/wb/TNVEDValidator').then(loadDefault)
+  ),
   '@components/features/wb/SplitCalculator': dynamic(() =>
     import('@/components/features/wb/SplitCalculator').then(loadDefault)
   ),
