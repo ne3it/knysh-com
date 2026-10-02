@@ -23,7 +23,7 @@ import {
   Calculator,
   Scan,
 } from 'lucide-react';
-import { BarcodeIcon, PriceControlIcon, StockoutIcon, SEOCleanIcon, StartupPlannerIcon, CargoTruckIcon, TNVEDCheckIcon, SplitCalculatorIcon, EcoFeeIcon, MarkingCodeIcon, FsznBgsIcon, TNVEDValidatorIcon, PvzReturnIcon } from './icons';
+import { BarcodeIcon, PriceControlIcon, StockoutIcon, SEOCleanIcon, StartupPlannerIcon, CargoTruckIcon, TNVEDCheckIcon, SplitCalculatorIcon, EcoFeeIcon, MarkingCodeIcon, FsznBgsIcon, TNVEDValidatorIcon, PvzReturnIcon, ActClaimIcon } from './icons';
 
 export const ICON_MAP: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
   LayoutDashboard,
@@ -61,7 +61,8 @@ Barcode: BarcodeIcon,
       FsznBgs: FsznBgsIcon,
       PvzReturn: PvzReturnIcon,
       TNVEDValidator: TNVEDValidatorIcon,
-     };
+      ActClaim: ActClaimIcon,
+    };
 
 export function getIconComponent(name: string) {
   return ICON_MAP[name] || HelpCircle;
@@ -193,11 +194,20 @@ const wbPvzReturn: Feature = {
   group: 'main',
 };
 
+const wbActClaim: Feature = {
+  id: 'act-claim',
+  label: 'Акт расхождения (Претензия)',
+  icon: 'ActClaim',
+  description: 'Генератор Акта о расхождениях и претензии к ТК / Фулфилменту (PDF)',
+  componentPath: '@/components/features/wb/DiscrepancyAct',
+  group: 'main',
+};
+
 export const WB_FEATURE_GROUPS: FeatureGroup[] = [  {
     id: 'main',
     label: 'Основные',
     defaultOpen: true,
-    features: [wbCalculator, wbSEOClean, wbStockout, wbPriceControl713, wbLabelsGenerator, wbStartupPlanner, wbCargoCalculator, wbTNVEDCheck, wbTNVEDValidator, wbSplitCalculator, wbEcoFeeCalculator, wbMarkingValidator, wbFsznBgs, wbPvzReturn],
+    features: [wbCalculator, wbSEOClean, wbStockout, wbPriceControl713, wbLabelsGenerator, wbStartupPlanner, wbCargoCalculator, wbTNVEDCheck, wbTNVEDValidator, wbSplitCalculator, wbEcoFeeCalculator, wbMarkingValidator, wbFsznBgs, wbPvzReturn, wbActClaim],
   },
 ];
 

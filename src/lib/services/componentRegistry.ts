@@ -64,6 +64,9 @@ export const COMPONENT_REGISTRY: Record<string, FeatureComponent> = {
   '@components/features/wb/PvzReturnAnalyzer': dynamic(() =>
     import('@/components/features/wb/PvzReturnAnalyzer').then(loadDefault)
   ),
+  '@components/features/wb/DiscrepancyAct': dynamic(() =>
+    import('@/components/features/wb/DiscrepancyAct').then(loadDefault)
+  ),
 };
 
 /**

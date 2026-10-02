@@ -319,6 +319,36 @@ export const PvzReturnIcon = ({ className = '', style, ...props }: SVGProps<SVGS
   </svg>
 );
 
+export const ActClaimIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#7b1fa2"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Document sheet */}
+    <path d="M4 3h9l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+    {/* Folded corner */}
+    <path d="M13 3v6h6" />
+    {/* Text lines on the sheet */}
+    <path d="M7.5 12.5h5" />
+    <path d="M7.5 16h3" />
+    {/* Crack across the sheet (расхождение) */}
+    <path d="M11 18.5l-1.2 2.2 1.6 1.6" />
+    {/* Exclamation mark badge, bottom-right */}
+    <circle cx="17" cy="17.5" r="4.5" fill="#ffffff" />
+    <path d="M17 15.2v3.1" />
+    <path d="M17 20.1v0.2" />
+  </svg>
+);
+
 export const MarkingCodeIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
