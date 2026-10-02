@@ -23,7 +23,7 @@ import {
   Calculator,
   Scan,
 } from 'lucide-react';
-import { BarcodeIcon, PriceControlIcon, StockoutIcon, SEOCleanIcon, StartupPlannerIcon, CargoTruckIcon, TNVEDCheckIcon, SplitCalculatorIcon, EcoFeeIcon, MarkingCodeIcon } from './icons';
+import { BarcodeIcon, PriceControlIcon, StockoutIcon, SEOCleanIcon, StartupPlannerIcon, CargoTruckIcon, TNVEDCheckIcon, SplitCalculatorIcon, EcoFeeIcon, MarkingCodeIcon, FsznBgsIcon } from './icons';
 
 export const ICON_MAP: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
   LayoutDashboard,
@@ -56,8 +56,9 @@ Barcode: BarcodeIcon,
    CargoTruck: CargoTruckIcon,
    TNVEDCheck: TNVEDCheckIcon,
    SplitCalculator: SplitCalculatorIcon,
-    EcoFee: EcoFeeIcon,
-    MarkingCode: MarkingCodeIcon,
+     EcoFee: EcoFeeIcon,
+     MarkingCode: MarkingCodeIcon,
+     FsznBgs: FsznBgsIcon,
     };
 
 export function getIconComponent(name: string) {
@@ -163,11 +164,20 @@ const wbMarkingValidator: Feature = {
   group: 'main',
 };
 
+const wbFsznBgs: Feature = {
+  id: 'fszn-bgs',
+  label: 'ФСЗН и Белгосстрах',
+  icon: 'FsznBgs',
+  description: 'Расчёт взносов ФСЗН и Белгосстрах для ИП-селлеров РБ по месяцам деятельности',
+  componentPath: '@/components/features/wb/FsznBgsCalculator',
+  group: 'main',
+};
+
 export const WB_FEATURE_GROUPS: FeatureGroup[] = [  {
     id: 'main',
     label: 'Основные',
     defaultOpen: true,
-    features: [wbCalculator, wbSEOClean, wbStockout, wbPriceControl713, wbLabelsGenerator, wbStartupPlanner, wbCargoCalculator, wbTNVEDCheck, wbSplitCalculator, wbEcoFeeCalculator, wbMarkingValidator],
+    features: [wbCalculator, wbSEOClean, wbStockout, wbPriceControl713, wbLabelsGenerator, wbStartupPlanner, wbCargoCalculator, wbTNVEDCheck, wbSplitCalculator, wbEcoFeeCalculator, wbMarkingValidator, wbFsznBgs],
   },
 ];
 

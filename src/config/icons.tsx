@@ -227,6 +227,39 @@ export const EcoFeeIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGE
   </svg>
 );
 
+export const FsznBgsIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#7b1fa2"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Calculator body */}
+    <rect x="2" y="2" width="13" height="20" rx="2" />
+    {/* Display */}
+    <path d="M4.5 6.5h8" />
+    {/* Keypad grid */}
+    <path d="M4.5 11h2.2M9.8 11H12" />
+    <path d="M4.5 14.5h2.2M9.8 14.5H12" />
+    <path d="M4.5 18h2.2M9.8 18H12" />
+    {/* Coin stack, bottom-right */}
+    <ellipse cx="18.5" cy="13.5" rx="3.4" ry="1.6" />
+    <path d="M15.1 15.1v2c0 .9 1.5 1.6 3.4 1.6s3.4-.7 3.4-1.6v-2" />
+    <path d="M15.1 16.1c0 .9 1.5 1.6 3.4 1.6s3.4-.7 3.4-1.6" />
+    {/* Percent sign on the top coin */}
+    <path d="M17.2 12.2h2.6" />
+    <circle cx="17.6" cy="12" r="0.5" />
+    <circle cx="19.4" cy="13" r="0.5" />
+  </svg>
+);
+
 export const MarkingCodeIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
