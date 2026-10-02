@@ -55,8 +55,11 @@ export const COMPONENT_REGISTRY: Record<string, FeatureComponent> = {
   '@components/features/wb/MarkingCodeValidator': dynamic(() =>
     import('@/components/features/wb/MarkingCodeValidator').then(loadDefault)
   ),
-  '@components/features/wb/FsznBgsCalculator': dynamic(() =>
+   '@components/features/wb/FsznBgsCalculator': dynamic(() =>
     import('@/components/features/wb/FsznBgsCalculator').then(loadDefault)
+  ),
+  '@components/features/wb/PvzReturnAnalyzer': dynamic(() =>
+    import('@/components/features/wb/PvzReturnAnalyzer').then(loadDefault)
   ),
 };
 

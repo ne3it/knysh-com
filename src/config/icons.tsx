@@ -260,6 +260,33 @@ export const FsznBgsIcon = ({ className = '', style, ...props }: SVGProps<SVGSVG
   </svg>
 );
 
+export const PvzReturnIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#7b1fa2"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Circular return arrows */}
+    <path d="M3.5 12a8.5 8.5 0 0 1 14.6-5.9" />
+    <path d="M18.5 3v3.5H15" />
+    <path d="M20.5 12a8.5 8.5 0 0 1-14.6 5.9" />
+    <path d="M5.5 21v-3.5H9" />
+    {/* Delivery truck in the center */}
+    <path d="M8 9.5h5.5v5H8z" />
+    <path d="M13.5 11h2.6l1.9 2.1v1.4h-4.5" />
+    <circle cx="10" cy="15.5" r="1.1" />
+    <circle cx="16" cy="15.5" r="1.1" />
+  </svg>
+);
+
 export const MarkingCodeIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"

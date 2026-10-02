@@ -23,7 +23,7 @@ import {
   Calculator,
   Scan,
 } from 'lucide-react';
-import { BarcodeIcon, PriceControlIcon, StockoutIcon, SEOCleanIcon, StartupPlannerIcon, CargoTruckIcon, TNVEDCheckIcon, SplitCalculatorIcon, EcoFeeIcon, MarkingCodeIcon, FsznBgsIcon } from './icons';
+import { BarcodeIcon, PriceControlIcon, StockoutIcon, SEOCleanIcon, StartupPlannerIcon, CargoTruckIcon, TNVEDCheckIcon, SplitCalculatorIcon, EcoFeeIcon, MarkingCodeIcon, FsznBgsIcon, PvzReturnIcon } from './icons';
 
 export const ICON_MAP: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
   LayoutDashboard,
@@ -58,8 +58,9 @@ Barcode: BarcodeIcon,
    SplitCalculator: SplitCalculatorIcon,
      EcoFee: EcoFeeIcon,
      MarkingCode: MarkingCodeIcon,
-     FsznBgs: FsznBgsIcon,
-    };
+      FsznBgs: FsznBgsIcon,
+      PvzReturn: PvzReturnIcon,
+     };
 
 export function getIconComponent(name: string) {
   return ICON_MAP[name] || HelpCircle;
@@ -173,11 +174,20 @@ const wbFsznBgs: Feature = {
   group: 'main',
 };
 
+const wbPvzReturn: Feature = {
+  id: 'pvz-return-analyzer',
+  label: 'Анализ покатушек (ПВЗ)',
+  icon: 'PvzReturn',
+  description: 'Анализатор прибыльности выкупа самовывозом из ПВЗ: точка невозврата товара и компенсация покатушек',
+  componentPath: '@/components/features/wb/PvzReturnAnalyzer',
+  group: 'main',
+};
+
 export const WB_FEATURE_GROUPS: FeatureGroup[] = [  {
     id: 'main',
     label: 'Основные',
     defaultOpen: true,
-    features: [wbCalculator, wbSEOClean, wbStockout, wbPriceControl713, wbLabelsGenerator, wbStartupPlanner, wbCargoCalculator, wbTNVEDCheck, wbSplitCalculator, wbEcoFeeCalculator, wbMarkingValidator, wbFsznBgs],
+    features: [wbCalculator, wbSEOClean, wbStockout, wbPriceControl713, wbLabelsGenerator, wbStartupPlanner, wbCargoCalculator, wbTNVEDCheck, wbSplitCalculator, wbEcoFeeCalculator, wbMarkingValidator, wbFsznBgs, wbPvzReturn],
   },
 ];
 
