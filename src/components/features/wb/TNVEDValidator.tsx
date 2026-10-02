@@ -29,43 +29,96 @@ export interface TnvedEntry {
 }
 
 /**
- * Ультимативная база товаров: код ТН ВЭД, маркировка «Электронный знак» (РБ),
- * форма подтверждения соответствия ЕАЭС и регулирование цен (Постановление № 713).
+ * Ультимативный справочник товарных секторов маркетплейса: код ТН ВЭД,
+ * маркировка «Электронный знак» (РБ), форма подтверждения соответствия ЕАЭС
+ * и регулирование цен (Постановление № 713). Секторы идут в порядке вывода
+ * в выпадающем списке (optgroup).
  */
 export const TNVED_DATABASE: TnvedEntry[] = [
-  // ОДЕЖДА И ОБУВЬ
-  { name: "Одежда верхняя, куртки, плащи мужские/женские", tnved: "6201400000", marking: "Да", trts: "ТР ТС 017/2011 (Декларация)", p713: "Да (макс. 30%)", group: "Одежда и обувь" },
-  { name: "Блузки, рубашки, батники трикотажные", tnved: "6106100000", marking: "Да", trts: "ТР ТС 017/2011 (Декларация)", p713: "Да (макс. 35%)", group: "Одежда и обувь" },
-  { name: "Костюмы, комплекты, пиджаки, платья, юбки", tnved: "6204430000", marking: "Нет", trts: "ТР ТС 017/2011 (Декларация)", p713: "Да (макс. 30%)", group: "Одежда и обувь" },
-  { name: "Белье нательное, пижамы, ночные сорочки (1 слой)", tnved: "6107110000", marking: "Нет", trts: "ТР ТС 017/2011 (Сертификат!)", p713: "Нет", group: "Одежда и обувь" },
-  { name: "Обувь с верхом из натуральной или комб. кожи", tnved: "6403999300", marking: "Да", trts: "ТР ТС 017/2011 (Декларация)", p713: "Да (макс. 35%)", group: "Одежда и обувь" },
-  { name: "Колготки, чулки, носки трикотажные", tnved: "6115950000", marking: "Нет", trts: "ТР ТС 017/2011 (Сертификат!)", p713: "Да (макс. 25%)", group: "Одежда и обувь" },
-  { name: "Постельное белье, простыни, наволочки", tnved: "6302210000", marking: "Да", trts: "ТР ТС 017/2011 (Декларация)", p713: "Да (макс. 30%)", group: "Одежда и обувь" },
+  // ОДЕЖДА И ТЕКСТИЛЬ (ВЗРОСЛЫЙ АССОРТИМЕНТ)
+  { name: "Пальто, куртки, ветровки, плащи мужские и женские", tnved: "6201400000", marking: "Да", trts: "ТР ТС 017/2011 (Декларация)", p713: "Да (макс. 30%)", group: "Одежда и текстиль для взрослых" },
+  { name: "Костюмы, комплекты, жакеты, платья, юбки, брюки", tnved: "6204430000", marking: "Нет", trts: "ТР ТС 017/2011 (Декларация)", p713: "Да (макс. 30%)", group: "Одежда и текстиль для взрослых" },
+  { name: "Блузки, рубашки, батники женские/мужские трикотажные", tnved: "6106100000", marking: "Да", trts: "ТР ТС 017/2011 (Декларация)", p713: "Да (макс. 35%)", group: "Одежда и текстиль для взрослых" },
+  { name: "Свитеры, джемперы, пуловеры, кардиганы трикотажные", tnved: "6110209100", marking: "Да", trts: "ТР ТС 017/2011 (Декларация)", p713: "Да (макс. 35%)", group: "Одежда и текстиль для взрослых" },
+  { name: "Белье нательное, пижамы, халаты, ночные сорочки (1 слой)", tnved: "6107110000", marking: "Нет", trts: "ТР ТС 017/2011 (СЕРТИФИКАТ!)", p713: "Нет", group: "Одежда и текстиль для взрослых" },
+  { name: "Колготки, чулки, носки, гольфы трикотажные", tnved: "6115950000", marking: "Нет", trts: "ТР ТС 017/2011 (СЕРТИФИКАТ!)", p713: "Да (макс. 25%)", group: "Одежда и текстиль для взрослых" },
+  { name: "Обувь с верхом из натуральной или комбинированной кожи", tnved: "6403999300", marking: "Да", trts: "ТР ТС 017/2011 (Декларация)", p713: "Да (макс. 35%)", group: "Одежда и текстиль для взрослых" },
+  { name: "Обувь из резины или полимеров (сланцы, сапоги)", tnved: "6401921000", marking: "Да", trts: "ТР ТС 017/2011 (Декларация)", p713: "Да (макс. 35%)", group: "Одежда и текстиль для взрослых" },
+  { name: "Постельное белье (простыни, пододеяльники, наволочки)", tnved: "6302210000", marking: "Да", trts: "ТР ТС 017/2011 (Декларация)", p713: "Да (макс. 30%)", group: "Одежда и текстиль для взрослых" },
+  { name: "Полотенца кухонные, махровые и кухонный текстиль", tnved: "6302600000", marking: "Да", trts: "ТР ТС 017/2011 (Декларация)", p713: "Да (макс. 30%)", group: "Одежда и текстиль для взрослых" },
 
-  // ДЕТСКИЕ ТОВАРЫ
-  { name: "Одежда и изделия для детей ясельного возраста", tnved: "6111209000", marking: "Да", trts: "ТР ТС 007/2011 (Сертификат!)", p713: "Да (макс. 30%)", group: "Детские товары" },
-  { name: "Игрушки детские из пластмасс и резины", tnved: "9503007000", marking: "Нет", trts: "ТР ТС 008/2011 (Сертификат!)", p713: "Да (макс. 30%)", group: "Детские товары" },
-  { name: "Подгузники и пеленки детские одноразовые", tnved: "9619008100", marking: "Нет", trts: "ТР ТС 007/2011 (СГР Минздрава)", p713: "Да (макс. 30%)", group: "Детские товары" },
+  // ДЕТСКИЙ АССОРТИМЕНТ (Максимальный контроль)
+  { name: "Одежда верхняя и трикотажная для детей и подростков", tnved: "6111209000", marking: "Да", trts: "ТР ТС 007/2011 (СЕРТИФИКАТ!)", p713: "Да (макс. 30%)", group: "Детские товары" },
+  { name: "Белье нательное и одежда первого слоя для новорожденных", tnved: "6111201000", marking: "Нет", trts: "ТР ТС 007/2011 (СГР Минздрава + Серт)", p713: "Да (макс. 30%)", group: "Детские товары" },
+  { name: "Обувь детская (кроме спортивной и домашней)", tnved: "6403919600", marking: "Да", trts: "ТР ТС 007/2011 (СЕРТИФИКАТ!)", p713: "Да (макс. 35%)", group: "Детские товары" },
+  { name: "Игрушки детские из пластмасс, резины, мягконабивные", tnved: "9503007000", marking: "Нет", trts: "ТР ТС 008/2011 (СЕРТИФИКАТ!)", p713: "Да (макс. 30%)", group: "Детские товары" },
+  { name: "Детские настольные игры, пазлы, головоломки", tnved: "9503009500", marking: "Нет", trts: "ТР ТС 008/2011 (СЕРТИФИКАТ!)", p713: "Да (макс. 30%)", group: "Детские товары" },
+  { name: "Подгузники, детские трусики, пеленки одноразовые", tnved: "9619008100", marking: "Нет", trts: "ТР ТС 007/2011 (СГР Минздрава)", p713: "Да (макс. 30%)", group: "Детские товары" },
+  { name: "Коляски детские и автокресла безопасности", tnved: "8715001000", marking: "Нет", trts: "ТР ТС 007/2011 (СЕРТИФИКАТ!)", p713: "Да (макс. 25%)", group: "Детские товары" },
 
-  // КОСМЕТИКА И БЫТОВАЯ ХИМИЯ
-  { name: "Духи и парфюмерная вода", tnved: "3303001000", marking: "Да", trts: "ТР ТС 009/2011 (Декларация)", p713: "Да (макс. 40%)", group: "Косметика и химия" },
-  { name: "Кремы, лосьоны, маски для ухода за кожей", tnved: "3304990000", marking: "Нет", trts: "ТР ТС 009/2011 (Декларация)", p713: "Да (макс. 35%)", group: "Косметика и химия" },
-  { name: "Мыло туалетное твердое", tnved: "3401110000", marking: "Нет", trts: "ТР ТС 009/2011 (Декларация)", p713: "Да (макс. 25%)", group: "Косметика и химия" },
-  { name: "Порошки, гели и капсулы для стирки белья", tnved: "3402500000", marking: "Нет", trts: "Нац. СГР (Минздрав РБ)", p713: "Да (макс. 25%)", group: "Косметика и химия" },
+  // КРАСОТА, ЗДОРОВЬЕ И ГИГИЕНА
+  { name: "Духи, парфюмерная и туалетная вода", tnved: "3303001000", marking: "Да", trts: "ТР ТС 009/2011 (Декларация)", p713: "Да (макс. 40%)", group: "Косметика и парфюмерия" },
+  { name: "Кремы, эмульсии, маски для ухода за кожей лица и тела", tnved: "3304990000", marking: "Нет", trts: "ТР ТС 009/2011 (Декларация)", p713: "Да (макс. 35%)", group: "Косметика и парфюмерия" },
+  { name: "Декоративная косметика (тушь, помада, тени, пудра)", tnved: "3304100000", marking: "Нет", trts: "ТР ТС 009/2011 (Декларация)", p713: "Да (макс. 40%)", group: "Косметика и парфюмерия" },
+  { name: "Шампуни, бальзамы, лаки и средства для волос", tnved: "3305100000", marking: "Нет", trts: "ТР ТС 009/2011 (Декларация)", p713: "Да (макс. 30%)", group: "Косметика и парфюмерия" },
+  { name: "Зубные пасты, ополаскиватели, гели для зубов", tnved: "3306100000", marking: "Нет", trts: "ТР ТС 009/2011 (Декларация)", p713: "Да (макс. 30%)", group: "Косметика и парфюмерия" },
+  { name: "Мыло туалетное твердое и жидкое", tnved: "3401110000", marking: "Нет", trts: "ТР ТС 009/2011 (Декларация)", p713: "Да (макс. 25%)", group: "Косметика и парфюмерия" },
+  { name: "Биологически активные добавки к пище (БАДы)", tnved: "2106909809", marking: "Нет", trts: "Нац. СГР Минздрава РБ", p713: "Да (макс. 40%)", group: "Косметика и парфюмерия" },
 
-  // СВОБОДНЫЕ ОТ СЕРТИФИКАЦИИ (Отказные письма)
-  { name: "Зеркала интерьерные стеклянные без подсветки", tnved: "7009920000", marking: "Нет", trts: "Отказное письмо", p713: "Нет", group: "Хозтовары и декор" },
-  { name: "Свечи парафиновые, декоративные восковые", tnved: "3406000000", marking: "Нет", trts: "Отказное письмо", p713: "Нет", group: "Хозтовары и декор" },
-  { name: "Бижутерия (серьги, кольца, заколки из металла/пластика)", tnved: "7117190000", marking: "Нет", trts: "Отказное письмо", p713: "Нет", group: "Хозтовары и декор" },
+  // ЭЛЕКТРОНИКА И БЫТОВАЯ ТЕХНИКА
+  { name: "Смартфоны, мобильные телефоны, планшеты", tnved: "8517130000", marking: "Нет", trts: "ТР ТС 004/2011, 020/2011 (Декларация)", p713: "Нет", group: "Электроника и бытовая техника" },
+  { name: "Умные часы, фитнес-браслеты, трекеры", tnved: "8517620003", marking: "Нет", trts: "ТР ТС 020/2011 (Декларация)", p713: "Нет", group: "Электроника и бытовая техника" },
+  { name: "Наушники беспроводные и проводные, гарнитуры", tnved: "8518300009", marking: "Нет", trts: "ТР ТС 020/2011 (Декларация)", p713: "Нет", group: "Электроника и бытовая техника" },
+  { name: "Электрочайники, кофеварки, тостеры, блендеры", tnved: "8516797000", marking: "Нет", trts: "ТР ТС 004, 020 (СЕРТИФИКАТ!)", p713: "Нет", group: "Электроника и бытовая техника" },
+  { name: "Фены, щипцы, плойки, выпрямители для волос электрические", tnved: "8516310000", marking: "Нет", trts: "ТР ТС 004, 020 (СЕРТИФИКАТ!)", p713: "Нет", group: "Электроника и бытовая техника" },
+  { name: "Портативные аккумуляторы (Power Bank), кабели, зарядки", tnved: "8504403009", marking: "Нет", trts: "ТР ТС 004/2011 (Декларация)", p713: "Нет", group: "Электроника и бытовая техника" },
+
+  // ДОМ, КУХНЯ И ХОЗТОВАРЫ
+  { name: "Мебель деревянная корпусная (столы, шкафы, комоды)", tnved: "9403601000", marking: "Нет", trts: "ТР ТС 025/2012 (Декларация)", p713: "Нет", group: "Дом, кухня и ремонт" },
+  { name: "Посуда столовая и кухонная из фарфора или фаянса", tnved: "6911100000", marking: "Нет", trts: "ГОСТ / Нац. Декларация РБ", p713: "Да (макс. 30%)", group: "Дом, кухня и ремонт" },
+  { name: "Сковороды, кастрюли, сотейники из алюминия/чугуна", tnved: "7615101000", marking: "Нет", trts: "ГОСТ / Нац. Декларация РБ", p713: "Да (макс. 30%)", group: "Дом, кухня и ремонт" },
+  { name: "Порошки, гели, капсулы для стирки белья", tnved: "3402500000", marking: "Нет", trts: "Нац. СГР (Минздрав РБ)", p713: "Да (макс. 25%)", group: "Дом, кухня и ремонт" },
+  { name: "Средства для мытья посуды и чистки поверхностей", tnved: "3402500000", marking: "Нет", trts: "Нац. СГР (Минздрав РБ)", p713: "Да (макс. 25%)", group: "Дом, кухня и ремонт" },
+  { name: "Светильники светодиодные, люстры, лампы настольные", tnved: "9405110011", marking: "Нет", trts: "ТР ТС 004, 020 (СЕРТИФИКАТ!)", p713: "Нет", group: "Дом, кухня и ремонт" },
+  { name: "Инструменты ручные (молотки, отвертки, плоскогубцы)", tnved: "8205200000", marking: "Нет", trts: "Отказное письмо", p713: "Нет", group: "Дом, кухня и ремонт" },
+
+  // СВОБОДНЫЕ ОТ СЕРТИФИКАЦИИ / ОТКАЗНЫЕ ПИСЬМА
+  { name: "Зеркала интерьерные стеклянные без встроенной подсветки", tnved: "7009920000", marking: "Нет", trts: "Отказное письмо", p713: "Нет", group: "Отказные письма (Бижутерия и Декор)" },
+  { name: "Свечи парафиновые, стеариновые, восковые декоративные", tnved: "3406000000", marking: "Нет", trts: "Отказное письмо", p713: "Нет", group: "Отказные письма (Бижутерия и Декор)" },
+  { name: "Бижутерия (серьги, кольца, заколки из базовых металлов)", tnved: "7117190000", marking: "Нет", trts: "Отказное письмо", p713: "Нет", group: "Отказные письма (Бижутерия и Декор)" },
+  { name: "Сумки, рюкзаки, городские кошельки (из искусств. кожи)", tnved: "4202921900", marking: "Нет", trts: "Отказное письмо", p713: "Да (макс. 21%)", group: "Отказные письма (Бижутерия и Декор)" },
+  { name: "Канцелярия для взрослых (ежедневники, ручки, блокноты)", tnved: "4820103000", marking: "Нет", trts: "Отказное письмо", p713: "Да (макс. 15%)", group: "Отказные письма (Бижутерия и Декор)" },
+  { name: "Чехлы, бамперы, защитные стекла для мобильных телефонов", tnved: "4202321000", marking: "Нет", trts: "Отказное письмо", p713: "Да (макс. 15%)", group: "Отказные письма (Бижутерия и Декор)" },
 ];
 
-export const TNVED_GROUPS = Array.from(new Set(TNVED_DATABASE.map((e) => e.group)));
+/** Секторы маркетплейса в порядке отображения — источник для <optgroup>. */
+export const TNVED_SECTORS: string[] = Array.from(new Set(TNVED_DATABASE.map((e) => e.group)));
+
+/** Позиции сектора — для рендера <optgroup> внутри <select>. */
+export function getSectorEntries(sector: string): TnvedEntry[] {
+  return TNVED_DATABASE.filter((e) => e.group === sector);
+}
+
+/** Уникальный ключ позиции: код ТН ВЭД не уникален внутри справочника. */
+export function entryKey(entry: TnvedEntry, index: number): string {
+  return `${entry.tnved}-${entry.name}-${index}`;
+}
+
+/** Сравнение позиций по коду и названию: один код ТН ВЭД встречается дважды. */
+function isSameEntry(a: TnvedEntry | null, b: TnvedEntry): boolean {
+  return !!a && a.tnved === b.tnved && a.name === b.name;
+}
 
 const PLACEHOLDER = 'Например: Куртка, Обувь, Блузка, 6201...';
 
 /** Префиксы разделов ТН ВЭД, по которым статус восстанавливается без справочника. */
-const APPAREL_PREFIXES = ['61', '62', '64'];
-const TECH_PREFIXES = ['85', '90'];
+const APPAREL_PREFIXES = ['61', '62', '63', '64'];
+const TECH_PREFIXES = ['85'];
+const BEAUTY_PREFIXES = ['33', '34'];
+const TOYS_PREFIXES = ['95'];
+
+export const MANUAL_VERIFICATION =
+  'Кастомный код. Требуется сверка с национальными перечнями ТР ТС и Постановления № 713';
 
 export function findExactByCode(code: string): TnvedEntry | undefined {
   const digits = code.replace(/\D/g, '');
@@ -74,7 +127,7 @@ export function findExactByCode(code: string): TnvedEntry | undefined {
 }
 
 /**
- * Режим неуязвимости: если кода нет в базе, разбираем первые две цифры.
+ * Режим неуязвимости: если кода нет в базе, разбираем первые 2-4 цифры раздела.
  * Никогда не бросает и всегда возвращает детерминированный статус.
  */
 export function inferByPrefix(code: string): TnvedEntry {
@@ -84,11 +137,11 @@ export function inferByPrefix(code: string): TnvedEntry {
 
   if (APPAREL_PREFIXES.includes(prefix)) {
     return {
-      name: `Код ${displayCode} — позиция вне справочника (раздел 6X)`,
+      name: `Код ${displayCode} — позиция вне справочника (раздел ${prefix}XX, одежда/обувь)`,
       tnved: displayCode,
-      marking: 'Возможно Да',
-      trts: 'ТР ТС 017/2011',
-      p713: 'Требует проверки',
+      marking: 'Проверить (Одежда/Обувь)',
+      trts: 'ТР ТС 017/2011 или 007/2011',
+      p713: 'Возможно Да',
       group: 'Эвристика по префиксу',
       inferred: true,
     };
@@ -96,22 +149,46 @@ export function inferByPrefix(code: string): TnvedEntry {
 
   if (TECH_PREFIXES.includes(prefix)) {
     return {
-      name: `Код ${displayCode} — позиция вне справочника (раздел 8X/9X)`,
+      name: `Код ${displayCode} — позиция вне справочника (раздел 85XX, электротехника)`,
       tnved: displayCode,
       marking: 'Нет',
-      trts: 'ТР ТС 004/2011 (Техника)',
+      trts: 'ТР ТС 004/2011 (Электротехника)',
       p713: 'Нет',
       group: 'Эвристика по префиксу',
       inferred: true,
     };
   }
 
+  if (BEAUTY_PREFIXES.includes(prefix)) {
+    return {
+      name: `Код ${displayCode} — позиция вне справочника (раздел ${prefix}XX, парфюмерия/химия)`,
+      tnved: displayCode,
+      marking: 'Проверить (Парфюм)',
+      trts: 'ТР ТС 009/2011 или СГР',
+      p713: 'Да',
+      group: 'Эвристика по префиксу',
+      inferred: true,
+    };
+  }
+
+  if (TOYS_PREFIXES.includes(prefix)) {
+    return {
+      name: `Код ${displayCode} — позиция вне справочника (раздел 95XX, детские игрушки)`,
+      tnved: displayCode,
+      marking: 'Нет',
+      trts: 'ТР ТС 008/2011 (Детские игрушки)',
+      p713: 'Да',
+      group: 'Эвристика по префиксу',
+      inferred: true,
+    };
+  }
+
   return {
-    name: `Код ${displayCode} — требуется ручная сверка`,
+    name: `Код ${displayCode} — кастомный код`,
     tnved: displayCode,
-    marking: 'Требуется ручная сверка с реестром Госстандарта',
-    trts: 'Требуется ручная сверка с реестром Госстандарта',
-    p713: 'Требуется ручная сверка с реестром Госстандарта',
+    marking: MANUAL_VERIFICATION,
+    trts: MANUAL_VERIFICATION,
+    p713: MANUAL_VERIFICATION,
     group: 'Ручная сверка',
     inferred: true,
   };
@@ -235,6 +312,7 @@ export default function TNVEDValidator({ feature }: { feature: Feature }) {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<TnvedEntry | null>(null);
   const [groupFilter, setGroupFilter] = useState<string>('Все группы');
+  const [catalogueIndex, setCatalogueIndex] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -243,12 +321,13 @@ export default function TNVEDValidator({ feature }: { feature: Feature }) {
       groupFilter === 'Все группы'
         ? TNVED_DATABASE
         : TNVED_DATABASE.filter((e) => e.group === groupFilter);
-    if (!query.trim()) return source.map((e) => ({ entry: e, score: 0 }));
+    if (!query.trim()) {
+      return source.map((entry) => ({ entry, index: TNVED_DATABASE.indexOf(entry) }));
+    }
     return source
-      .map((entry) => ({ entry, score: scoreMatch(entry, query.trim()) }))
+      .map((entry) => ({ entry, index: TNVED_DATABASE.indexOf(entry), score: scoreMatch(entry, query.trim()) }))
       .filter((item) => item.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map(({ entry }) => ({ entry, score: 0 }));
+      .sort((a, b) => b.score - a.score);
   }, [query, groupFilter]);
 
   const typedCode = /^\d+$/.test(query.trim()) && query.trim().length >= 2 ? query.trim() : null;
@@ -257,8 +336,10 @@ export default function TNVEDValidator({ feature }: { feature: Feature }) {
   const hasResults = matches.length > 0 || fallbackEntry !== null;
 
   const handleSelect = (entry: TnvedEntry) => {
+    const index = TNVED_DATABASE.indexOf(entry);
     setSelected(entry);
     setQuery(entry.tnved);
+    setCatalogueIndex(index >= 0 ? String(index) : '');
     setIsOpen(false);
   };
 
@@ -266,6 +347,7 @@ export default function TNVEDValidator({ feature }: { feature: Feature }) {
     setQuery('');
     setSelected(null);
     setGroupFilter('Все группы');
+    setCatalogueIndex('');
     setIsOpen(false);
     inputRef.current?.focus();
   };
@@ -351,7 +433,7 @@ export default function TNVEDValidator({ feature }: { feature: Feature }) {
                         className="absolute z-20 mt-1 w-full max-h-72 overflow-y-auto bg-white border border-neutral-200 rounded-xl shadow-lg divide-y divide-neutral-100"
                       >
                         {fallbackEntry && (
-                          <li role="option" aria-selected={selected?.tnved === fallbackEntry.tnved}>
+                          <li role="option" aria-selected={isSameEntry(selected, fallbackEntry)}>
                             <button
                               type="button"
                               onMouseDown={(e) => e.preventDefault()}
@@ -368,8 +450,12 @@ export default function TNVEDValidator({ feature }: { feature: Feature }) {
                             </button>
                           </li>
                         )}
-                        {matches.map(({ entry }) => (
-                          <li key={entry.tnved} role="option" aria-selected={selected?.tnved === entry.tnved}>
+                        {matches.map(({ entry, index }) => (
+                          <li
+                            key={entryKey(entry, index)}
+                            role="option"
+                            aria-selected={isSameEntry(selected, entry)}
+                          >
                             <button
                               type="button"
                               onMouseDown={(e) => e.preventDefault()}
@@ -395,6 +481,39 @@ export default function TNVEDValidator({ feature }: { feature: Feature }) {
                   </div>
                 </div>
 
+                <div className="md:col-span-2">
+                  <label
+                    htmlFor="tnved-catalogue"
+                    className="block text-sm font-medium text-neutral-700 mb-1"
+                  >
+                    Справочник ТН ВЭД по товарным секторам ({TNVED_DATABASE.length} позиций)
+                  </label>
+                  <select
+                    id="tnved-catalogue"
+                    value={catalogueIndex}
+                    onChange={(e) => {
+                      const entry = TNVED_DATABASE[Number(e.target.value)];
+                      if (entry) handleSelect(entry);
+                      else setCatalogueIndex('');
+                    }}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg bg-neutral-50 text-neutral-900 focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                  >
+                    <option value="">— Выберите позицию из справочника —</option>
+                    {TNVED_SECTORS.map((sector) => (
+                      <optgroup key={sector} label={sector}>
+                        {getSectorEntries(sector).map((entry) => (
+                          <option
+                            key={entryKey(entry, TNVED_DATABASE.indexOf(entry))}
+                            value={String(TNVED_DATABASE.indexOf(entry))}
+                          >
+                            {entry.tnved} — {entry.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+
                 <div>
                   <label htmlFor="tnved-group" className="block text-sm font-medium text-neutral-700 mb-1">
                     Товарная группа
@@ -406,9 +525,9 @@ export default function TNVEDValidator({ feature }: { feature: Feature }) {
                     className="w-full px-3 py-2 border border-neutral-300 rounded-lg bg-neutral-50 text-neutral-900 focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                   >
                     <option value="Все группы">Все группы</option>
-                    {TNVED_GROUPS.map((group) => (
-                      <option key={group} value={group}>
-                        {group}
+                    {TNVED_SECTORS.map((sector) => (
+                      <option key={sector} value={sector}>
+                        {sector}
                       </option>
                     ))}
                   </select>
@@ -467,7 +586,7 @@ export default function TNVEDValidator({ feature }: { feature: Feature }) {
                       onClick={() => handleSelect(fallbackEntry)}
                       className={cn(
                         'w-full text-left px-3 py-2.5 border rounded-lg transition-colors',
-                        selected?.tnved === fallbackEntry.tnved
+                        isSameEntry(selected, fallbackEntry)
                           ? 'border-[var(--primary)] bg-[var(--primary)]/10'
                           : 'border-neutral-200 hover:bg-neutral-50'
                       )}
@@ -482,14 +601,14 @@ export default function TNVEDValidator({ feature }: { feature: Feature }) {
                     </button>
                   </li>
                 )}
-                {matches.map(({ entry }) => (
-                  <li key={entry.tnved}>
+                {matches.map(({ entry, index }) => (
+                  <li key={entryKey(entry, index)}>
                     <button
                       type="button"
                       onClick={() => handleSelect(entry)}
                       className={cn(
                         'w-full text-left px-3 py-2.5 border rounded-lg transition-colors',
-                        selected?.tnved === entry.tnved
+                        isSameEntry(selected, entry)
                           ? 'border-[var(--primary)] bg-[var(--primary)]/10'
                           : 'border-neutral-200 hover:bg-neutral-50'
                       )}
