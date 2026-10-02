@@ -59,7 +59,7 @@ export function SectionSidebar({ sectionId, className, forceExpanded = false, on
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-40 h-screen bg-white border-r border-neutral-200 flex flex-col transition-all duration-300',
+        'sidebar-shell fixed left-0 top-0 z-40 bg-white border-r border-neutral-200 flex flex-col transition-all duration-300',
         sidebarCollapsed ? 'w-16' : 'w-72',
         className
       )}
@@ -111,7 +111,10 @@ export function SectionSidebar({ sectionId, className, forceExpanded = false, on
       )}
 
       {/* Feature Groups */}
-      <nav className="flex-1 overflow-y-auto p-3" aria-label="Список функций">
+      <nav
+        className="sidebar-scroll flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:pb-3"
+        aria-label="Список функций"
+      >
         {sectionConfig.featureGroups.map((group) => {
           const isCollapsed = collapsedGroups[group.id] ?? !group.defaultOpen;
           const groupFeatures = groupedFeatures[group.id] || [];

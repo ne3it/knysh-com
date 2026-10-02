@@ -41,6 +41,9 @@ export function SectionLayout({ sectionId, children }: SectionLayoutProps) {
   useEffect(() => {
     if (!mobileMenuOpen) return;
 
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setMobileMenuOpen(false);
     };
@@ -53,6 +56,7 @@ export function SectionLayout({ sectionId, children }: SectionLayoutProps) {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('resize', handleResize);
+      document.body.style.overflow = previousOverflow;
     };
   }, [mobileMenuOpen]);
 

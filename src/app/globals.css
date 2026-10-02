@@ -97,6 +97,18 @@
 }
 
 @layer utilities {
+  /* === Section sidebar shell ===
+     100vh fallback, then dynamic viewport height so the bottom of the feature
+     list is never cut off behind the mobile browser URL bar */
+  .sidebar-shell {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .sidebar-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+
   /* === Scroll-triggered animations === */
   .animate-fade-in-up {
     opacity: 0;
