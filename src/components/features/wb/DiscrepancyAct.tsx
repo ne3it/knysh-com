@@ -96,6 +96,18 @@ interface FormState {
   carrier: string;
   /** Номер накладной / заказа */
   waybill: string;
+  /** Наименование товара / грузового места — графа 2 таблицы акта */
+  productName: string;
+  /** Единица измерения — графа 3 таблицы акта */
+  unit: string;
+  /** Транспортное средство перевозчика (автомобиль, гос. номер) */
+  vehicle: string;
+  /** Водитель ТК: ФИО и данные удостоверения */
+  driverName: string;
+  /** ФИО руководителя грузополучателя — правая подпись в акте */
+  receiverName: string;
+  /** Место составления акта */
+  place: string;
   /** Тип нарушения (юридическое основание) */
   violation: ViolationType;
   /** Кастомное правовое обоснование (только для law_custom) */
@@ -113,6 +125,12 @@ const DEFAULT_FORM: FormState = {
   unp: '193674829',
   carrier: "ООО 'ТК Энергия'",
   waybill: 'МНСК-2026/10',
+  productName: 'Коробки карго (грузовые места)',
+  unit: 'шт.',
+  vehicle: '',
+  driverName: '',
+  receiverName: 'Кныш А.А.',
+  place: 'г. Минск',
   violation: DEFAULT_VIOLATION_TYPE,
   customLaw: '',
   shipped: '100',
@@ -176,9 +194,21 @@ function plural(count: number, one: string, few: string, many: string) {
   return many;
 }
 
-/** Текущая дата в формате «02.10.2026» для бланка акта */
+/** Текущая дата в формате «02.10.2026» */
 function currentDateRu() {
   return new Date().toLocaleDateString('ru-RU');
+}
+
+const MONTHS_GENITIVE = [
+  'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
+];
+
+/** Дата в разговорной форме «02 октября 2026» — принятый вид реквизита в бланках актов */
+function currentDateLong() {
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${day} ${MONTHS_GENITIVE[now.getMonth()]} ${now.getFullYear()}`;
 }
 
 function sanitizeFileName(value: string) {
@@ -191,53 +221,55 @@ function sanitizeFileName(value: string) {
   );
 }
 
+/** Реквизиты нормативного акта, на который ссылается бланк акта */
+export const POSTANOVLENIE_970 =
+  'Постановлением Совета Министров Республики Беларусь от 30.06.2008 № 970';
+
+/** То же реквизит в именительном падеже — для ссылок в скобках */
+const POSTANOVLENIE_970_NOM = 'Постановление Совета Министров Республики Беларусь от 30.06.2008 № 970';
+
 /**
- * Текст мотивировочной части претензии, зависящий от типа нарушения.
- * Для law_custom используется вручную введённое юридическое обоснование —
+ * Нормы, конкретизирующие характер расхождений.
+ * Само Постановление № 970 уже процитировано во вводной части,
+ * поэтому здесь перечисляются только применимые статьи и условия договора.
+ * Для law_custom добавляется вручную введённое обоснование —
  * это делает инструмент неуязвимым к изменениям регламентов перевозок.
  */
-function buildClaimText(form: FormState, result: DiscrepancyResult): string[] {
-  const waybill = form.waybill.trim() || '__________';
-  const shortage = result.shortage;
-  const amount = format(result.claimAmount);
+function buildLegalBasis(form: FormState): string[] {
+  const custom = form.customLaw.trim();
+  const basis: string[] = [];
 
   switch (form.violation) {
     case 'loss':
-      return [
-        `При приеме груза по накладной ${waybill} обнаружена недостача в количестве ${shortage} шт.`,
-        'На основании Правил автомобильных перевозок грузов РБ (Пост. Совмина №970) и ст. 750 ГК РБ, требуем возместить убытки в размере ' +
-          `${amount} BYN.`,
-      ];
+      basis.push('ст. 750 ГК Республики Беларусь — ответственность перевозчика за утрату груза');
+      break;
     case 'inside_loss':
-      return [
-        `При приеме груза по накладной ${waybill} установлено вскрытие грузовых мест и внутренняя недостача товара в количестве ${shortage} шт.`,
-        'На основании Правил автомобильных перевозок грузов РБ (Пост. Совмина №970), ст. 750 и ст. 761 ГК РБ, а также п. 4.11 договора транспортной перевозки требуем возместить убытки в размере ' +
-          `${amount} BYN.`,
-      ];
+      basis.push(
+        'ст. 750 и ст. 761 ГК Республики Беларусь, а также условия договора транспортной перевозки'
+      );
+      break;
     case 'damage':
-      return [
-        'При передаче груза обнаружено повреждение упаковки.',
-        'Товар потерял товарный вид и не подлежит реализации на Wildberries.',
-        `Требуем компенсировать стоимость поврежденного товара в размере ${amount} BYN.`,
-      ];
+      basis.push(
+        'ст. 761 ГК Республики Беларусь — ответственность за повреждение груза, и пункт 25 Правил автомобильных перевозок грузов'
+      );
+      break;
     case 'temp_damage':
-      return [
-        `При приеме груза по накладной ${waybill} обнаружена порча товара в количестве ${shortage} шт. вследствие нарушения перевозчиком температурного режима.`,
-        'На основании ст. 750, ст. 761 ГК РБ и Правил автомобильных перевозок грузов РБ (Пост. Совмина №970) требуем возместить убытки в размере ' +
-          `${amount} BYN.`,
-      ];
+      basis.push(
+        'ст. 750 и ст. 761 ГК Республики Беларусь, а также требования к температурному режиму при перевозке грузов'
+      );
+      break;
     case 'delay':
-      return [
-        `Груз по накладной ${waybill} доставлен с нарушением нормативных сроков перевозки.`,
-        `На основание ст. 752 ГК РБ и Правил автомобильных перевозок грузов РБ (Пост. Совмина №970) требуем взыскать неустойку за просрочку доставки в размере ${amount} BYN.`,
-      ];
+      basis.push('ст. 752 ГК Республики Беларусь — ответственность за просрочку доставки груза');
+      break;
     case 'law_custom':
-    default: {
-      const custom = form.customLaw.trim();
-      const base = `По накладной ${waybill} зафиксировано расхождение в количестве ${shortage} шт. Сумма ущерба составляет ${amount} BYN.`;
-      return custom ? [base, custom] : [base];
-    }
+    default:
+      basis.push('условия договора транспортной перевозки и нормы ГК Республики Беларусь');
+      break;
   }
+
+  if (custom) basis.push(`дополнительное обоснование Заявителя: ${custom}`);
+
+  return basis;
 }
 
 /** Человекочитаемая метрика для превью: сколько единиц недополучено */
@@ -253,6 +285,383 @@ function registerPdfFont(doc: jsPDF) {
   return doc;
 }
 
+/** Геометрия листа A4 и поля бланка акта, мм */
+const SHEET = { width: 210, height: 297 };
+const MARGIN = { top: 14, right: 10, bottom: 14, left: 10 };
+const CONTENT_WIDTH = SHEET.width - MARGIN.left - MARGIN.right;
+const RIGHT_EDGE = SHEET.width - MARGIN.right;
+
+interface TableColumn {
+  title: string;
+  width: number;
+  align: 'left' | 'center' | 'right';
+}
+
+/**
+ * Жёсткая сетка таблицы расхождений: 8 граф суммарной шириной 190 мм
+ * (при полях по 10 мм). Графы 1–6 числовые, 7–8 денежные.
+ */
+const TABLE_COLUMNS: TableColumn[] = [
+  { title: '№', width: 9, align: 'center' },
+  { title: 'Наименование товара / грузового места', width: 43, align: 'left' },
+  { title: 'Ед. изм.', width: 13, align: 'center' },
+  { title: 'Числилось по документам, шт.', width: 25, align: 'center' },
+  { title: 'Фактически принято, шт.', width: 25, align: 'center' },
+  { title: 'Расхождение / Недостача, шт.', width: 25, align: 'center' },
+  { title: 'Стоимость за ед., BYN', width: 21, align: 'right' },
+  { title: 'Сумма ущерба, BYN', width: 29, align: 'right' },
+];
+
+const CELL_PAD_X = 1.6;
+const HEADER_LINE_HEIGHT = 3.2;
+const BODY_LINE_HEIGHT = 3.6;
+
+/**
+ * Формирует первичный двусторонний Акт о расхождениях по форме,
+ * предусмотренной Правилами автомобильных перевозок грузов (Пост. Совмина № 970).
+ * Возвращает готовый документ — вызывающий код сохраняет его на диск.
+ */
+export function buildDiscrepancyActPdf(form: FormState, result: DiscrepancyResult): jsPDF {
+  const doc = registerPdfFont(new jsPDF({ unit: 'mm', format: 'a4' }));
+
+  const INK: [number, number, number] = [25, 25, 25];
+  const MUTED: [number, number, number] = [110, 110, 110];
+  const BODY_SIZE = 10;
+  const BODY_LINE = 4.9;
+
+  let cursorY = MARGIN.top;
+  const pageBottom = () => SHEET.height - MARGIN.bottom;
+
+  /**
+   * Кириллический текст с автопереносом по ширине листа.
+   * jsPDF выравнивает строку относительно точки x, а maxWidth использует
+   * только как ширину переноса, поэтому для center/right якорь
+   * предварительно сдвигается в середину или в конец блока.
+   */
+  const writeWrapped = (
+    text: string,
+    options: {
+      align?: 'left' | 'center' | 'right' | 'justify';
+      x?: number;
+      width?: number;
+      style?: 'normal' | 'bold';
+      size?: number;
+      color?: [number, number, number];
+      lineHeight?: number;
+      spaceAfter?: number;
+    } = {}
+  ) => {
+    const {
+      align = 'left',
+      width = CONTENT_WIDTH,
+      style = 'normal',
+      size = BODY_SIZE,
+      color = INK,
+      lineHeight = BODY_LINE,
+      spaceAfter = 0,
+    } = options;
+
+    const left = options.x ?? MARGIN.left;
+    const anchor =
+      align === 'center' ? left + width / 2 : align === 'right' ? left + width : left;
+
+    doc.setFont('Roboto', style);
+    doc.setFontSize(size);
+    doc.setTextColor(color[0], color[1], color[2]);
+
+    const lines = doc.splitTextToSize(text, width) as string[];
+    if (cursorY + lines.length * lineHeight > pageBottom()) {
+      doc.addPage();
+      cursorY = MARGIN.top;
+    }
+    doc.text(text, anchor, cursorY, { maxWidth: width, align });
+    cursorY += lines.length * lineHeight + spaceAfter;
+  };
+
+  /** Строка «реквизит: значение» — жирная подпись, переносимое значение */
+  const writeField = (label: string, value: string) => {
+    doc.setFont('Roboto', 'bold');
+    doc.setFontSize(BODY_SIZE);
+    doc.setTextColor(INK[0], INK[1], INK[2]);
+    const labelWidth = doc.getTextWidth(label);
+
+    doc.setFont('Roboto', 'normal');
+    const valueX = MARGIN.left + labelWidth;
+    const valueWidth = RIGHT_EDGE - valueX;
+    const lines = doc.splitTextToSize(value, valueWidth) as string[];
+
+    if (cursorY + lines.length * BODY_LINE > pageBottom()) {
+      doc.addPage();
+      cursorY = MARGIN.top;
+    }
+    doc.setFont('Roboto', 'bold');
+    doc.text(label, MARGIN.left, cursorY, { maxWidth: labelWidth });
+    doc.setFont('Roboto', 'normal');
+    doc.text(value, valueX, cursorY, { maxWidth: valueWidth });
+    cursorY += lines.length * BODY_LINE;
+  };
+
+  const blank = (text: string, fallback: string) => text.trim() || fallback;
+
+  const waybill = blank(form.waybill, '__________');
+  const amount = format(result.claimAmount);
+  const shortage = format(result.shortage, 0);
+
+  /* ── 1. ШАПКА И НАЗВАНИЕ ДОКУМЕНТА ─────────────────────────────────── */
+
+  writeWrapped('АКТ № _____', {
+    align: 'center', style: 'bold', size: 16, spaceAfter: 1.5,
+  });
+  writeWrapped('об установлении расхождений по количеству и качеству при приемке груза', {
+    align: 'center', style: 'bold', size: 11, spaceAfter: 1.5,
+  });
+  writeWrapped(`от "${currentDateLong()}" г.    Место составления: ${blank(form.place, '____________')}`, {
+    align: 'center', size: 10, spaceAfter: 2,
+  });
+
+  // Двойная линия-разделитель — типографский признак официального бланка
+  doc.setDrawColor(30, 30, 30);
+  doc.setLineWidth(0.9);
+  doc.line(MARGIN.left, cursorY, RIGHT_EDGE, cursorY);
+  doc.setLineWidth(0.35);
+  doc.line(MARGIN.left, cursorY + 1.3, RIGHT_EDGE, cursorY + 1.3);
+  cursorY += 7;
+
+  /* ── 2. ВВОДНАЯ ЮРИДИЧЕСКАЯ ЧАСТЬ ──────────────────────────────────── */
+
+  writeWrapped(
+    'Настоящий Акт составлен в соответствии с Правилами автомобильных перевозок грузов, ' +
+      `утвержденными ${POSTANOVLENIE_970}.`,
+    { align: 'justify', spaceAfter: 1 }
+  );
+  buildLegalBasis(form).forEach((item) =>
+    writeWrapped(`— ${item};`, { align: 'justify', color: MUTED, spaceAfter: 0.5 })
+  );
+  cursorY += 2;
+
+  writeField('Грузоотправитель/Заявитель: ', `${blank(form.organization, '________________')}, УНП ${blank(form.unp, '__________')}`);
+  writeField('Перевозчик (ТК): ', blank(form.carrier, '________________'));
+  writeField('Транспортное средство (автомобиль, гос.номер): ', blank(form.vehicle, '________________________'));
+  writeField('Водитель ТК (ФИО, данные удостоверения): ', blank(form.driverName, '____________________________'));
+  writeField('Товаросопроводительный документ: ', `накладная/заказ № ${waybill}`);
+  writeField('Характер выявленных расхождений: ', result.violation.label);
+  cursorY += 4;
+
+  /* ── 3. ОФИЦИАЛЬНАЯ ТАБЛИЦА РАСХОЖДЕНИЙ ────────────────────────────── */
+
+  const dataRow = [
+    '1',
+    blank(form.productName, '________________'),
+    blank(form.unit, 'шт.'),
+    format(result.shipped, 0),
+    format(result.accepted, 0),
+    shortage,
+    format(result.unitPrice),
+    amount,
+  ];
+  const totalRow = ['ИТОГО', '', '', '', '', '', '—', amount];
+
+  const measureRow = (
+    cells: string[],
+    size: number,
+    style: 'normal' | 'bold',
+    lineHeight: number
+  ) => {
+    doc.setFont('Roboto', style);
+    doc.setFontSize(size);
+    let maxLines = 1;
+    TABLE_COLUMNS.forEach((column, index) => {
+      const lines = doc.splitTextToSize(cells[index], column.width - CELL_PAD_X * 2) as string[];
+      maxLines = Math.max(maxLines, lines.length);
+    });
+    return maxLines * lineHeight + 3.2;
+  };
+
+  const headerHeight = measureRow(TABLE_COLUMNS.map((c) => c.title), 6.6, 'bold', HEADER_LINE_HEIGHT);
+  const dataHeight = measureRow(dataRow, 8.2, 'normal', BODY_LINE_HEIGHT);
+  const totalHeight = measureRow(totalRow, 8.2, 'bold', BODY_LINE_HEIGHT);
+  const tableHeight = headerHeight + dataHeight + totalHeight;
+
+  // Таблица не должна разрываться и не должна наезжать на блок подписей
+  const signatureReserve = 40;
+  if (cursorY + tableHeight > pageBottom() - signatureReserve) {
+    doc.addPage();
+    cursorY = MARGIN.top;
+  }
+
+  const tableTop = cursorY;
+  const tableBottom = tableTop + tableHeight;
+  const columnEdges = TABLE_COLUMNS.reduce<number[]>(
+    (edges, column, index) => [...edges, (edges[index] ?? MARGIN.left) + column.width],
+    [MARGIN.left]
+  );
+
+  const rowBands: { top: number; height: number; fill: [number, number, number] | null }[] = [
+    { top: tableTop, height: headerHeight, fill: [233, 233, 233] },
+    { top: tableTop + headerHeight, height: dataHeight, fill: null },
+    { top: tableTop + headerHeight + dataHeight, height: totalHeight, fill: [240, 240, 240] },
+  ];
+
+  // Заливка фона строк
+  doc.setLineWidth(0);
+  rowBands.forEach((band) => {
+    if (!band.fill) return;
+    doc.setFillColor(band.fill[0], band.fill[1], band.fill[2]);
+    doc.rect(MARGIN.left, band.top, CONTENT_WIDTH, band.height, 'F');
+  });
+  doc.setLineWidth(0.35);
+  doc.setDrawColor(60, 60, 60);
+
+  // Горизонтальные линии сетки
+  doc.line(MARGIN.left, tableTop, RIGHT_EDGE, tableTop);
+  rowBands.forEach((band) => {
+    doc.line(MARGIN.left, band.top + band.height, RIGHT_EDGE, band.top + band.height);
+  });
+
+  // Вертикальные линии сетки; в строке «ИТОГО» графы 1–6 объединены
+  const mergedRowTop = rowBands[2].top;
+  for (let i = 1; i < columnEdges.length - 1; i += 1) {
+    const x = columnEdges[i];
+    doc.line(x, tableTop, x, mergedRowTop);
+    if (i >= 6) doc.line(x, mergedRowTop, x, tableBottom);
+  }
+  doc.line(RIGHT_EDGE, tableTop, RIGHT_EDGE, tableBottom);
+  doc.line(MARGIN.left, tableTop, MARGIN.left, tableBottom);
+
+  // Утолщённая рамка таблицы
+  doc.setLineWidth(0.8);
+  doc.rect(MARGIN.left, tableTop, CONTENT_WIDTH, tableHeight, 'S');
+  doc.setLineWidth(0.35);
+
+  // Содержимое ячеек с вертикальным центрированием.
+  // spans задаёт объединённые графы: { 0: 6 } — «ИТОГО» на ширине граф 1–6.
+  const writeCells = (
+    cells: string[],
+    band: { top: number; height: number },
+    size: number,
+    style: 'normal' | 'bold',
+    lineHeight: number,
+    spans: Record<number, number> = {},
+    color: [number, number, number] = INK
+  ) => {
+    const covered = new Set<number>();
+    Object.entries(spans).forEach(([start, span]) => {
+      for (let k = 1; k < span; k += 1) covered.add(Number(start) + k);
+    });
+
+    const centre = band.top + band.height / 2 + lineHeight * 0.34;
+    TABLE_COLUMNS.forEach((column, index) => {
+      const text = cells[index];
+      if (!text || covered.has(index)) return;
+
+      const span = spans[index] ?? 1;
+      const left = columnEdges[index];
+      const right = columnEdges[index + span];
+      const inner = right - left - CELL_PAD_X * 2;
+
+      doc.setFont('Roboto', style);
+      doc.setFontSize(size);
+      doc.setTextColor(color[0], color[1], color[2]);
+
+      const lines = doc.splitTextToSize(text, inner) as string[];
+      // jsPDF выравнивает по точке x: справа — правый край, по центру — ось ячейки
+      const textX =
+        column.align === 'right'
+          ? right - CELL_PAD_X
+          : column.align === 'center'
+            ? (left + right) / 2
+            : left + CELL_PAD_X;
+      doc.text(lines, textX, centre - ((lines.length - 1) * lineHeight) / 2, {
+        maxWidth: inner,
+        align: column.align,
+        baseline: 'middle',
+      });
+    });
+  };
+
+  writeCells(
+    TABLE_COLUMNS.map((c) => c.title),
+    rowBands[0],
+    6.6,
+    'bold',
+    HEADER_LINE_HEIGHT
+  );
+  writeCells(dataRow, rowBands[1], 8.2, 'normal', BODY_LINE_HEIGHT);
+  writeCells(totalRow, rowBands[2], 8.2, 'bold', BODY_LINE_HEIGHT, { 0: 6 });
+
+  cursorY = tableBottom + 5;
+
+  /* ── 4. ЗАКЛЮЧИТЕЛЬНАЯ ЧАСТЬ ───────────────────────────────────────── */
+
+  writeWrapped(
+    `Итого по настоящему Акту выявлена недостача в количестве: ${shortage} шт., ` +
+      `на общую сумму ${amount} BYN.`,
+    { align: 'justify', style: 'bold', spaceAfter: 1 }
+  );
+  writeWrapped(
+    'Подтверждающие коммерческие документы, фото- и видеоматериалы прилагаются к настоящему Акту ' +
+      'и являются его неотъемлемой частью. Ущерб подлежит возмещению Перевозчиком в установленный ' +
+      'договором и законодательством Республики Беларусь срок.',
+    { align: 'justify' }
+  );
+
+  /* ── 5. ДВУСТОРОННИЕ ПОДПИСИ ───────────────────────────────────────── */
+
+  const signatureTop = Math.max(cursorY + 10, pageBottom() - 32);
+  const columnWidth = (CONTENT_WIDTH - 8) / 2;
+  const leftX = MARGIN.left;
+  const rightX = MARGIN.left + columnWidth + 8;
+
+  doc.setDrawColor(120, 120, 120);
+  doc.setLineWidth(0.3);
+  doc.line(MARGIN.left, signatureTop - 4, RIGHT_EDGE, signatureTop - 4);
+  doc.setLineWidth(0.35);
+
+  const writeSignatureBlock = (x: number, title: string, name: string) => {
+    doc.setFont('Roboto', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(INK[0], INK[1], INK[2]);
+    doc.text(title, x, signatureTop, { maxWidth: columnWidth });
+
+    doc.setFont('Roboto', 'normal');
+    doc.setFontSize(9.5);
+    doc.text(`______________ / ${name}`, x, signatureTop + 11, { maxWidth: columnWidth });
+
+    doc.setFontSize(7.6);
+    doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+    doc.text('(Подпись)', x, signatureTop + 15.5, { maxWidth: columnWidth });
+    const initialsX = x + columnWidth - doc.getTextWidth('(Инициалы, фамилия)');
+    doc.text('(Инициалы, фамилия)', initialsX, signatureTop + 15.5);
+  };
+
+  writeSignatureBlock(
+    leftX,
+    'Сдал от Перевозчика (Водитель ТК):',
+    blank(form.driverName, '_________________')
+  );
+  writeSignatureBlock(
+    rightX,
+    'Принял от Грузополучателя / Селлера:',
+    blank(form.receiverName, '_________________')
+  );
+
+  doc.setFont('Roboto', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(INK[0], INK[1], INK[2]);
+  doc.text('М.П.', rightX, signatureTop + 22, { maxWidth: columnWidth });
+
+  doc.setFontSize(7.4);
+  doc.setTextColor(140, 140, 140);
+  doc.text(
+    `Акт сформирован ${currentDateRu()}. Форма бланка соответствует Правилам автомобильных перевозок грузов (${POSTANOVLENIE_970_NOM}).`,
+    MARGIN.left + CONTENT_WIDTH / 2,
+    SHEET.height - 6,
+    { maxWidth: CONTENT_WIDTH, align: 'center' }
+  );
+
+  return doc;
+}
+
 export default function DiscrepancyAct({ feature }: { feature: Feature }) {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
 
@@ -263,166 +672,11 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
   const isCustomLaw = form.violation === 'law_custom';
 
   const result = useMemo(() => calculateDiscrepancy(form), [form]);
-  const claimParagraphs = useMemo(() => buildClaimText(form, result), [form, result]);
+  const legalBasis = useMemo(() => buildLegalBasis(form), [form]);
 
   const handleDownloadPdf = () => {
-    const doc = registerPdfFont(new jsPDF({ unit: 'mm', format: 'a4' }));
-    const pageWidth = 210;
-    const pageHeight = 297;
-    const margin = 20;
-    const contentWidth = pageWidth - margin * 2;
-    const rightEdge = pageWidth - margin;
-    const lineHeight = 5.2;
-    const date = currentDateRu();
-    const waybill = form.waybill.trim() || '__________';
-    const amount = format(result.claimAmount);
-    let cursorY = 22;
-
-    /** Сохраняет блок на той же странице, при нехватке места переносит на новую */
-    const ensureSpace = (needed: number) => {
-      if (cursorY + needed <= pageHeight - margin) return;
-      doc.addPage();
-      cursorY = margin;
-    };
-
-    /** Печатает текст с автоматическим переносом по ширине листа A4 */
-    const writeWrapped = (
-      text: string,
-      options: {
-        align?: 'left' | 'center' | 'right' | 'justify';
-        width?: number;
-        x?: number;
-        style?: 'normal' | 'bold';
-        size?: number;
-        color?: [number, number, number];
-        indent?: number;
-      } = {}
-    ) => {
-      const {
-        align = 'left',
-        width = contentWidth,
-        x = margin,
-        style = 'normal',
-        size = 11,
-        color = [40, 40, 40],
-        indent = 0,
-      } = options;
-
-      doc.setFont('Roboto', style);
-      doc.setFontSize(size);
-      doc.setTextColor(color[0], color[1], color[2]);
-
-      const available = width - indent;
-      const lines = doc.splitTextToSize(text, available) as string[];
-      ensureSpace(lines.length * lineHeight + 2);
-      doc.text(text, x + indent, cursorY, { maxWidth: available, align });
-      cursorY += lines.length * lineHeight;
-    };
-
-    // 1. Официальная шапка (правый блок)
-    writeWrapped(`Кому: Руководителю ${form.carrier.trim() || '________________'}`, {
-      align: 'right',
-      x: margin,
-      width: contentWidth,
-    });
-    cursorY += 4;
-
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.4);
-    doc.line(margin, cursorY, rightEdge, cursorY);
-    cursorY += 5;
-
-    writeWrapped(`От кого: ${form.organization.trim() || '________________'}`, {
-      align: 'right',
-      x: margin,
-      width: contentWidth,
-      style: 'bold',
-    });
-    writeWrapped(`УНП: ${form.unp.trim() || '________________'}`, {
-      align: 'right',
-      x: margin,
-      width: contentWidth,
-    });
-    writeWrapped(`Исх. № ________ от ${date}`, {
-      align: 'right',
-      x: margin,
-      width: contentWidth,
-    });
-    cursorY += 8;
-
-    // 2. Заголовок документа
-    writeWrapped('АКТ О РАСХОЖДЕНИЯХ И ПРЕТЕНЗИЯ', {
-      align: 'center',
-      x: margin,
-      width: contentWidth,
-      style: 'bold',
-      size: 14,
-      color: [126, 27, 177],
-    });
-    writeWrapped(`(Исх. №__ от ${date})`, {
-      align: 'center',
-      x: margin,
-      width: contentWidth,
-      style: 'bold',
-      size: 11,
-    });
-    cursorY += 4;
-
-    doc.setDrawColor(126, 27, 177);
-    doc.setLineWidth(1.2);
-    doc.line(margin, cursorY, rightEdge, cursorY);
-    cursorY += 10;
-
-    // 3. Установочная часть: реквизиты перевозки
-    writeWrapped(`Перевозчик: ${form.carrier.trim() || '________________'}`, { align: 'justify' });
-    writeWrapped(`Номер накладной/заказа: ${waybill}`, { align: 'justify' });
-    writeWrapped('Характер нарушения: ' + result.violation.label, { align: 'justify' });
-    cursorY += 3;
-    writeWrapped(
-      `Отправлено по накладной: ${result.shipped} шт. Фактически принято складом: ${result.accepted} шт.`,
-      { align: 'justify' }
-    );
-    writeWrapped(`Обнаружено расхождение (недостача): ${result.shortage} шт.`, {
-      align: 'justify',
-      style: 'bold',
-    });
-    writeWrapped(
-      `Стоимость 1 единицы товара (упущенная цена продажи): ${format(result.unitPrice)} BYN. Сумма претензии: ${amount} BYN.`,
-      { align: 'justify', style: 'bold' }
-    );
-    cursorY += 4;
-
-    // 4. Мотивировочная часть претензии (зависит от типа нарушения)
-    claimParagraphs.forEach((paragraph) => {
-      writeWrapped(paragraph, { align: 'justify' });
-      cursorY += 2;
-    });
-    cursorY += 3;
-
-    writeWrapped(
-      'На основании изложенного, указанное расхождение является нарушением договора транспортной перевозки. Требуем в десятидневный срок с момента получения настоящего акта возместить причинённый ущерб.',
-      { align: 'justify' }
-    );
-    writeWrapped('К акту прилагаются: документы транспортной накладной, фото/видеоматериалы, акт приёма-передачи, расчёт ущерба.', {
-      align: 'justify',
-    });
-    cursorY += 6;
-
-    // 5. Подпись и печать (в подвале документа)
-    ensureSpace(34);
-    const footerY = Math.max(cursorY, pageHeight - margin - 26);
-    doc.setFont('Roboto', 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(40, 40, 40);
-    doc.text('Руководитель __________ / ' + (form.organization.trim() || '________________'), margin, footerY, {
-      maxWidth: contentWidth,
-    });
-    doc.text('М.П. (Место для печати)', margin, footerY + 8, { maxWidth: contentWidth });
-    doc.setFontSize(9);
-    doc.setTextColor(130, 130, 130);
-    doc.text(`Сформировано ${date}`, margin, footerY + 18, { maxWidth: contentWidth });
-
-    doc.save(`Akt_Raskhozhdeniya_${sanitizeFileName(waybill)}.pdf`);
+    const doc = buildDiscrepancyActPdf(form, result);
+    doc.save(`Akt_Raskhozhdeniya_${sanitizeFileName(form.waybill)}.pdf`);
   };
 
   return (
@@ -433,7 +687,8 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
           <div className="bg-white rounded-xl border border-neutral-200 p-6">
             <h3 className="text-lg font-semibold text-neutral-900 mb-1">Параметры акта</h3>
             <p className="text-sm text-neutral-500 mb-4">
-              Универсальная претензия к ТК / Фулфилменту по расхождению груза
+              Первичный двусторонний Акт о расхождениях по Правилам автомобильных перевозок грузов
+              (Пост. Совмина № 970)
             </p>
 
             <div className="space-y-4">
@@ -494,6 +749,97 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
                     onChange={(e) => updateField('waybill', e.target.value)}
                     className={inputClass}
                     required
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="block text-sm font-medium text-neutral-700 mb-1"
+                    htmlFor="act-product-name"
+                  >
+                    Наименование товара / грузового места
+                  </label>
+                  <input
+                    id="act-product-name"
+                    type="text"
+                    value={form.productName}
+                    onChange={(e) => updateField('productName', e.target.value)}
+                    className={inputClass}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1" htmlFor="act-unit">
+                    Ед. изм.
+                  </label>
+                  <input
+                    id="act-unit"
+                    type="text"
+                    value={form.unit}
+                    onChange={(e) => updateField('unit', e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1" htmlFor="act-vehicle">
+                    Транспортное средство (автомобиль, гос.номер)
+                  </label>
+                  <input
+                    id="act-vehicle"
+                    type="text"
+                    value={form.vehicle}
+                    onChange={(e) => updateField('vehicle', e.target.value)}
+                    className={inputClass}
+                    placeholder="Если известно — заполните, иначе останется прочерк"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="block text-sm font-medium text-neutral-700 mb-1"
+                    htmlFor="act-driver-name"
+                  >
+                    Водитель ТК (ФИО, данные удостоверения)
+                  </label>
+                  <input
+                    id="act-driver-name"
+                    type="text"
+                    value={form.driverName}
+                    onChange={(e) => updateField('driverName', e.target.value)}
+                    className={inputClass}
+                    placeholder="Если известно — заполните, иначе останется прочерк"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="block text-sm font-medium text-neutral-700 mb-1"
+                    htmlFor="act-receiver-name"
+                  >
+                    ФИО руководителя (принимает груз)
+                  </label>
+                  <input
+                    id="act-receiver-name"
+                    type="text"
+                    value={form.receiverName}
+                    onChange={(e) => updateField('receiverName', e.target.value)}
+                    className={inputClass}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1" htmlFor="act-place">
+                    Место составления акта
+                  </label>
+                  <input
+                    id="act-place"
+                    type="text"
+                    value={form.place}
+                    onChange={(e) => updateField('place', e.target.value)}
+                    className={inputClass}
                   />
                 </div>
 
@@ -620,7 +966,7 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
 
           {/* Расчёт и превью документа */}
           <div className="bg-white rounded-xl border border-neutral-200 p-6">
-            <h3 className="text-lg font-semibold text-neutral-900 mb-1">Сумма претензии</h3>
+            <h3 className="text-lg font-semibold text-neutral-900 mb-1">Итоги по акту</h3>
             <p className="text-sm text-neutral-500 mb-4">
               Недостача = Отправлено − Фактически принято; Сумма = Недостача × Цена 1 ед.
             </p>
@@ -661,75 +1007,177 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
               </div>
             </div>
 
-            {/* Превью официального документа */}
+            {/* Превью официального бланка акта */}
             <div className="mt-5">
               <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
-                Превью акта и претензии
+                Превью бланка акта (Пост. Совмина № 970)
               </p>
-              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 max-h-[520px] overflow-y-auto">
-                <div className="text-right text-xs text-neutral-600 space-y-0.5">
-                  <p className="font-medium text-neutral-800">
-                    Кому: Руководителю {form.carrier || '—'}
-                  </p>
-                </div>
-
-                <div className="my-2 border-t border-neutral-300" />
-
-                <div className="text-right text-xs text-neutral-600 space-y-0.5">
-                  <p>
-                    От кого:{' '}
-                    <span className="font-medium text-neutral-900">{form.organization || '—'}</span>
-                  </p>
-                  <p>
-                    УНП: <span className="font-medium text-neutral-900">{form.unp || '—'}</span>
-                  </p>
-                  <p>Исх. № ________ от {currentDateRu()}</p>
-                </div>
-
-                <p className="mt-4 text-center text-sm font-semibold text-[#7b1fa2]">
-                  АКТ О РАСХОЖДЕНИЯХ И ПРЕТЕНЗИЯ
-                  <span className="block text-xs font-bold text-neutral-800">
-                    (Исх. №__ от {currentDateRu()})
-                  </span>
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 max-h-[560px] overflow-y-auto">
+                {/* Шапка */}
+                <p className="text-center text-base font-bold text-neutral-900">АКТ № _____</p>
+                <p className="mt-1 text-center text-xs font-bold text-neutral-800">
+                  об установлении расхождений по количеству и качеству при приемке груза
                 </p>
+                <p className="mt-1 text-center text-xs text-neutral-700">
+                  от «{currentDateLong()}» г.&nbsp;&nbsp;&nbsp; Место составления:{' '}
+                  {form.place || '—'}
+                </p>
+                <div className="my-3 border-t-2 border-neutral-700" />
 
-                <div className="my-3 border-t-2 border-[#7b1fa2]" />
-
+                {/* Вводная юридическая часть */}
                 <div className="text-xs text-neutral-700 leading-relaxed text-justify space-y-1.5">
                   <p>
-                    Перевозчик: <span className="font-medium text-neutral-900">{form.carrier || '—'}</span>
+                    Настоящий Акт составлен в соответствии с Правилами автомобильных перевозок
+                    грузов, утвержденными {POSTANOVLENIE_970}.
                   </p>
+                  {legalBasis.map((item, index) => (
+                    <p key={index} className="text-neutral-500">
+                      — {item};
+                    </p>
+                  ))}
+
+                  <div className="space-y-1 pt-1.5">
+                    <p>
+                      <span className="font-semibold text-neutral-900">Грузоотправитель/Заявитель: </span>
+                      {form.organization || '—'}, УНП {form.unp || '—'}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-neutral-900">Перевозчик (ТК): </span>
+                      {form.carrier || '—'}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-neutral-900">
+                        Транспортное средство (автомобиль, гос.номер):{' '}
+                      </span>
+                      {form.vehicle || '________________________'}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-neutral-900">
+                        Водитель ТК (ФИО, данные удостоверения):{' '}
+                      </span>
+                      {form.driverName || '____________________________'}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-neutral-900">
+                        Товаросопроводительный документ:{' '}
+                      </span>
+                      накладная/заказ № {form.waybill || '—'}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-neutral-900">
+                        Характер выявленных расхождений:{' '}
+                      </span>
+                      {result.violation.label}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Таблица расхождений */}
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full border-collapse text-[10px] text-neutral-800">
+                    <thead>
+                      <tr className="bg-neutral-200">
+                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[4%]">№</th>
+                        <th className="border border-neutral-400 px-1 py-1 font-semibold text-left w-[22%]">
+                          Наименование товара / грузового места
+                        </th>
+                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[7%]">
+                          Ед. изм.
+                        </th>
+                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[13%]">
+                          Числилось по документам, шт.
+                        </th>
+                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[13%]">
+                          Фактически принято, шт.
+                        </th>
+                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[13%]">
+                          Расхождение / Недостача, шт.
+                        </th>
+                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[13%]">
+                          Стоимость за ед., BYN
+                        </th>
+                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[15%]">
+                          Сумма ущерба, BYN
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="border border-neutral-400 px-1 py-1.5 text-center">1</td>
+                        <td className="border border-neutral-400 px-1 py-1.5">
+                          {form.productName || '—'}
+                        </td>
+                        <td className="border border-neutral-400 px-1 py-1.5 text-center">
+                          {form.unit || 'шт.'}
+                        </td>
+                        <td className="border border-neutral-400 px-1 py-1.5 text-center">
+                          {format(result.shipped, 0)}
+                        </td>
+                        <td className="border border-neutral-400 px-1 py-1.5 text-center">
+                          {format(result.accepted, 0)}
+                        </td>
+                        <td className="border border-neutral-400 px-1 py-1.5 text-center font-semibold">
+                          {format(result.shortage, 0)}
+                        </td>
+                        <td className="border border-neutral-400 px-1 py-1.5 text-right">
+                          {format(result.unitPrice)}
+                        </td>
+                        <td className="border border-neutral-400 px-1 py-1.5 text-right font-semibold">
+                          {format(result.claimAmount)}
+                        </td>
+                      </tr>
+                      <tr className="bg-neutral-200">
+                        <td
+                          className="border border-neutral-400 px-1 py-1.5 font-bold text-center"
+                          colSpan={6}
+                        >
+                          ИТОГО
+                        </td>
+                        <td className="border border-neutral-400 px-1 py-1.5 text-center">—</td>
+                        <td className="border border-neutral-400 px-1 py-1.5 text-right font-bold">
+                          {format(result.claimAmount)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Заключительная часть */}
+                <div className="mt-3 text-xs text-neutral-700 leading-relaxed text-justify space-y-1.5">
                   <p>
-                    Номер накладной/заказа:{' '}
-                    <span className="font-medium text-neutral-900">{form.waybill || '—'}</span>
-                  </p>
-                  <p>Характер нарушения: {result.violation.label}</p>
-                  <p>
-                    Отправлено по накладной: {format(result.shipped, 0)} шт. Фактически принято
-                    складом: {format(result.accepted, 0)} шт.
-                  </p>
-                  <p className="font-medium text-neutral-900">
-                    Обнаружено расхождение (недостача): {format(result.shortage, 0)} шт.
-                  </p>
-                  <p>
-                    Стоимость 1 единицы товара: {format(result.unitPrice)} BYN.{' '}
-                    <span className="font-medium text-neutral-900">
-                      Сумма претензии: {format(result.claimAmount)} BYN.
+                    <span className="font-semibold text-neutral-900">
+                      Итого по настоящему Акту выявлена недостача в количестве:{' '}
+                      {format(result.shortage, 0)} шт., на общую сумму{' '}
+                      {format(result.claimAmount)} BYN.
                     </span>
                   </p>
-                  {claimParagraphs.map((paragraph, index) => (
-                    <p key={index}>{paragraph}</p>
-                  ))}
                   <p>
-                    На основании изложенного, указанное расхождение является нарушением договора
-                    транспортной перевозки. Требуем в десятидневный срок с момента получения
-                    настоящего акта возместить причинённый ущерб.
+                    Подтверждающие коммерческие документы, фото- и видеоматериалы прилагаются к
+                    настоящему Акту и являются его неотъемлемой частью. Ущерб подлежит возмещению
+                    Перевозчиком в установленный договором и законодательством Республики Беларусь
+                    срок.
                   </p>
                 </div>
 
-                <div className="mt-5 space-y-1 text-xs text-neutral-700">
-                  <p>Руководитель __________ / {form.organization || '—'}</p>
-                  <p>М.П. (Место для печати)</p>
+                {/* Двусторонние подписи */}
+                <div className="mt-5 grid grid-cols-2 gap-4 border-t border-neutral-300 pt-3 text-xs text-neutral-800">
+                  <div>
+                    <p className="font-semibold">Сдал от Перевозчика (Водитель ТК):</p>
+                    <p className="mt-2">______________ / {form.driverName || '_________________'}</p>
+                    <p className="mt-0.5 text-[10px] text-neutral-500">
+                      <span>(Подпись)</span>
+                      <span className="float-right">(Инициалы, фамилия)</span>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-semibold">Принял от Грузополучателя / Селлера:</p>
+                    <p className="mt-2">______________ / {form.receiverName || '_________________'}</p>
+                    <p className="mt-0.5 text-[10px] text-neutral-500">
+                      <span>(Подпись)</span>
+                      <span className="float-right">(Инициалы, фамилия)</span>
+                    </p>
+                    <p className="mt-1.5 text-neutral-700">М.П.</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -740,17 +1188,18 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
               className="mt-5 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-white bg-[#7b1fa2] hover:bg-[#7b1fa2]/90 transition-colors"
             >
               <Download className="w-4 h-4" />
-              Скачать готовый Акт и Претензию (PDF)
+              Скачать Акт о расхождениях (PDF)
             </button>
 
             <div className="mt-4 bg-neutral-50 rounded-lg border border-neutral-200 p-3">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 mt-0.5 text-[var(--primary)]" aria-hidden="true" />
                 <p className="text-xs text-neutral-600">
-                  Документ формируется в официальной форме и может быть использован для досудебного
-                  урегулирования. При выборе пункта «Иное нарушение договора» добавьте собственное
-                  юридическое обоснование — инструмент остаётся рабочим при любых изменениях
-                  регламентов перевозок.
+                  Форма бланка соответствует Правилам автомобильных перевозок грузов, утверждённым{' '}
+                  {POSTANOVLENIE_970}. Акт является первичным двусторонним документом: подписи
+                  водителя ТК и грузополучателя проставляются при подписании. При выборе пункта
+                  «Иное нарушение договора» добавьте собственное юридическое обоснование —
+                  инструмент остаётся рабочим при любых изменениях регламентов перевозок.
                 </p>
               </div>
             </div>
