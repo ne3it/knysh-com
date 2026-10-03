@@ -62,6 +62,14 @@ const format = (value: number, digits = 2) =>
 
 type Tone = 'default' | 'muted' | 'accent' | 'success' | 'warn' | 'danger';
 
+type RateSource = 'nbrb' | 'fallback' | 'manual';
+
+const RATE_SOURCE_LABELS: Record<RateSource, string> = {
+  nbrb: 'курс НБРБ',
+  fallback: 'резервный курс (НБРБ недоступен)',
+  manual: 'курс введён вручную',
+};
+
 const TONE_TEXT: Record<Tone, string> = {
   default: 'text-neutral-900',
   muted: 'text-neutral-500',
@@ -186,7 +194,10 @@ function categoryLabel(category: PriceControlCategory): string {
 export default function Calculator({ feature }: { feature: Feature }) {
   const [form, setForm] = useState<MegaUnitForm>(DEFAULT_MEGA_FORM);
   const [rate, setRate] = useState<number>(MEGA_CONFIG.FALLBACK_RUB_TO_BYN);
-  const [rateSource, setRateSource] = useState<'nbrb' | 'fallback'>('fallback');
+  /** Ручной курс: пустая строка = использовать курс, полученный с НБРБ */
+  const [rateDraft, setRateDraft] = useState('');
+  const [rateSource, setRateSource] = useState<RateSource>('fallback');
+  const [rateUpdatedAt, setRateUpdatedAt] = useState<number | null>(null);
   const [rateError, setRateError] = useState<string | null>(null);
   const [tariffSettingsOpen, setTariffSettingsOpen] = useState(false);
 
@@ -194,15 +205,22 @@ export default function Calculator({ feature }: { feature: Feature }) {
     setRateError(null);
     try {
       const response = await fetch(
-        `/api/v1/exchange-rate${force ? `?t=${Date.now()}` : ''}`,
+        `/api/v1/exchange-rate${force ? '?force=1' : ''}`,
         { cache: 'no-store' }
       );
       if (!response.ok) throw new Error(`Курс недоступен (${response.status})`);
-      const data = (await response.json()) as { rub_to_byn?: number; source?: string };
+      const data = (await response.json()) as {
+        rub_to_byn?: number;
+        source?: string;
+        retrieved_at?: number | null;
+      };
       const nextRate = toNumber(String(data.rub_to_byn ?? ''));
       if (nextRate <= 0) throw new Error('НБРБ вернул некорректный курс');
       setRate(nextRate);
       setRateSource(data.source === 'nbrb' ? 'nbrb' : 'fallback');
+      setRateUpdatedAt(data.retrieved_at ?? Date.now());
+      // Принудительное обновление возвращает управление курсу НБРБ
+      if (force) setRateDraft('');
     } catch (err) {
       setRateSource('fallback');
       setRateError(err instanceof Error ? err.message : 'Курс недоступен, используем резервный');
@@ -213,6 +231,15 @@ export default function Calculator({ feature }: { feature: Feature }) {
     void loadRate();
   }, [loadRate]);
 
+  const manualRate = toNumber(rateDraft);
+  const effectiveRate = manualRate > 0 ? manualRate : rate;
+  const activeRateSource: RateSource = manualRate > 0 ? 'manual' : rateSource;
+
+  const updateRateDraft = (value: string) => {
+    setRateDraft(value);
+    setRateError(null);
+  };
+
   const updateField = <K extends keyof MegaUnitForm>(field: K, value: MegaUnitForm[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
@@ -221,7 +248,10 @@ export default function Calculator({ feature }: { feature: Feature }) {
     setForm((prev) => ({ ...prev, [field]: value } as MegaUnitForm));
   };
 
-  const result = useMemo(() => calculateMegaUnitEconomics(form, rate), [form, rate]);
+  const result = useMemo(
+    () => calculateMegaUnitEconomics(form, effectiveRate),
+    [form, effectiveRate]
+  );
 
   const ecoEnabled = form.eco_fee !== 'none';
   const ecoWeightDisabled = !ecoEnabled;
@@ -474,6 +504,44 @@ export default function Calculator({ feature }: { feature: Feature }) {
                     unit="BYN"
                     hint="Не входит в точку безубыточности: показывает цель по РРЦ"
                   />
+
+                  <div className="md:col-span-2">
+                    <NumberField
+                      id="mega-rate"
+                      label="Курс: 1 RUB = ? BYN"
+                      value={rateDraft}
+                      onChange={updateRateDraft}
+                      unit="BYN"
+                      step="0.0001"
+                      hint="Пусто = курс НБРБ. Введите своё значение, чтобы пересчёт пошёл мгновенно"
+                    />
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="px-2 py-1 rounded-lg bg-neutral-100 text-neutral-700 font-medium tabular-nums">
+                        1 RUB = {format(effectiveRate, 4)} BYN
+                      </span>
+                      <span
+                        className={cn(
+                          'px-2 py-1 rounded-lg font-medium',
+                          activeRateSource === 'nbrb'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : activeRateSource === 'manual'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-amber-100 text-amber-800'
+                        )}
+                      >
+                        {RATE_SOURCE_LABELS[activeRateSource]}
+                        {rateUpdatedAt && activeRateSource !== 'manual'
+                          ? ` · ${new Date(rateUpdatedAt).toLocaleTimeString('ru-RU', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}`
+                          : ''}
+                      </span>
+                      <span className="text-neutral-400">
+                        1 BYN = {format(effectiveRate > 0 ? 1 / effectiveRate : 0, 2)} RUB
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </BlockCard>
@@ -862,14 +930,15 @@ export default function Calculator({ feature }: { feature: Feature }) {
               <button
                 type="button"
                 onClick={() => void loadRate(true)}
+                title="Принудительный запрос курса НБРБ, игнорируя серверный кэш"
                 className="flex items-center justify-center gap-2 px-4 py-3 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
               >
                 <RefreshCw className="w-4 h-4" aria-hidden="true" />
-                Обновить курс
+                Обновить курс НБРБ
               </button>
               <span className="flex-1 text-xs text-neutral-400">
-                Расчёт обновляется автоматически на лету · 1 RUB = {format(result.rate, 4)} BYN{' '}
-                {rateSource === 'nbrb' ? '(НБРБ)' : '(резервный курс)'}
+                Расчёт обновляется автоматически на лету · {RATE_SOURCE_LABELS[activeRateSource]} ·{' '}
+                {rateError ? `ошибка: ${rateError}` : 'курс применяется ко всем блокам'}
               </span>
             </div>
             {rateError && <p className="text-xs text-amber-700">{rateError}</p>}

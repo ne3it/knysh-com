@@ -26,6 +26,8 @@ let inFlight: Promise<ExchangeRate> | null = null;
 async function fetchFromNbrb(): Promise<ExchangeRate> {
   const response = await fetch(WB_CALC_CONFIG.NBRB_API_URL, {
     next: { revalidate: WB_CALC_CONFIG.CACHE_TTL_SECONDS },
+    // Таймаут обязателен: иначе зависший НБРБ «подвешивает» принудительное обновление курса
+    signal: AbortSignal.timeout(WB_CALC_CONFIG.NBRB_TIMEOUT_MS),
   });
   if (!response.ok) {
     throw new Error(`NBRB API error: ${response.status}`);
@@ -77,6 +79,11 @@ export class CurrencyService {
       return cachedRate.rubToByn;
     }
     return null;
+  }
+
+  /** Момент фактического получения курса (из кэша или с НБРБ), мс */
+  static getCurrentRetrievedAt(): number | null {
+    return cachedRate !== null ? cachedRate.retrievedAt : null;
   }
 
   static getCurrentSource(): 'nbrb' | 'fallback' | null {

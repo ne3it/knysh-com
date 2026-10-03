@@ -7,6 +7,8 @@ export const WB_CALC_CONFIG = {
   BUFFER_CONVERSION: 0.02,
   NBRB_API_URL: 'https://nbrb.by/api/exrates/rates/100RUB',
   CACHE_TTL_SECONDS: 3600,
+  /** Таймаут запроса курса НБРБ, мс (защита от «зависшего» обновления) */
+  NBRB_TIMEOUT_MS: 5000,
   FALLBACK_RUB_TO_BYN: 0.03,
 } as const;
 
