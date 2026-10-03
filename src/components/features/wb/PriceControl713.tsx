@@ -3,44 +3,8 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { AlertTriangle, ChevronDown, Scale } from 'lucide-react';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
+import { PRICE_CONTROL_CATEGORIES, type PriceControlCategory } from '@/lib/services/priceControl713';
 import type { Feature } from '@/types/section';
-
-interface Category {
-  name: string;
-  limit: number;
-  group: string;
-}
-
-const CATEGORIES: Category[] = [
-  { name: 'Одежда мужская и женская (кроме трикотажа)', limit: 0.30, group: 'Одежда и обувь' },
-  { name: 'Трикотажные изделия (белье, кофты, футболки)', limit: 0.35, group: 'Одежда и обувь' },
-  { name: 'Обувь мужская и женская', limit: 0.35, group: 'Одежда и обувь' },
-  { name: 'Чулочно-носочные изделия', limit: 0.25, group: 'Одежда и обувь' },
-
-  { name: 'Детская одежда и трикотаж', limit: 0.30, group: 'Детские товары' },
-  { name: 'Детская обувь', limit: 0.35, group: 'Детские товары' },
-  { name: 'Детские игрушки и игры', limit: 0.30, group: 'Детские товары' },
-  { name: 'Детское питание (каши, смеси, пюре)', limit: 0.25, group: 'Детские товары' },
-  { name: 'Подгузники и детские трусики', limit: 0.30, group: 'Детские товары' },
-
-  { name: 'Парфюмерия и духи', limit: 0.40, group: 'Косметика и гигиена' },
-  { name: 'Декоративная косметика (помада, тушь, лаки)', limit: 0.40, group: 'Косметика и гигиена' },
-  { name: 'Средства для ухода за кожей лица и тела', limit: 0.35, group: 'Косметика и гигиена' },
-  { name: 'Средства для ухода за волосами (шампуни, бальзамы)', limit: 0.30, group: 'Косметика и гигиена' },
-  { name: 'Зубная паста, щётки и средства гигиены рта', limit: 0.30, group: 'Косметика и гигиена' },
-  { name: 'Мыло туалетное и твердое', limit: 0.25, group: 'Косметика и гигиена' },
-  { name: 'Гигиенические пакеты, тампоны, салфетки', limit: 0.30, group: 'Косметика и гигиена' },
-
-  { name: 'Средства для стирки (порошки, гели, капсулы)', limit: 0.25, group: 'Бытовая химия' },
-  { name: 'Средства для мытья посуды', limit: 0.25, group: 'Бытовая химия' },
-  { name: 'Чистящие средства для дома и сантехники', limit: 0.25, group: 'Бытовая химия' },
-  { name: 'Мыло хозяйственное', limit: 0.25, group: 'Бытовая химия' },
-
-  { name: 'Посуда столовая и кухонная', limit: 0.30, group: 'Хозтовары' },
-  { name: 'Постельное белье и текстиль для дома', limit: 0.30, group: 'Хозтовары' },
-  { name: 'Бытовая техника малая (чайники, блендеры)', limit: 0.30, group: 'Техника' },
-  { name: 'Инструменты ручные и электроинструменты', limit: 0.30, group: 'Инструменты' },
-];
 
 interface FormState {
   cost_price: string;
@@ -48,8 +12,8 @@ interface FormState {
 }
 
 export default function PriceControl713({ feature }: { feature: Feature }) {
-  const defaultCategory = CATEGORIES[0];
-  const [selectedCategory, setSelectedCategory] = useState<Category>(defaultCategory);
+  const defaultCategory = PRICE_CONTROL_CATEGORIES[0];
+  const [selectedCategory, setSelectedCategory] = useState<PriceControlCategory>(defaultCategory);
   const [searchValue, setSearchValue] = useState(defaultCategory.name);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>({
@@ -66,18 +30,18 @@ export default function PriceControl713({ feature }: { feature: Feature }) {
 
   const filteredOptions = useMemo(() => {
     const needle = searchValue.toLowerCase();
-    if (!needle) return CATEGORIES;
-    return CATEGORIES.filter((c) => c.name.toLowerCase().includes(needle));
+    if (!needle) return PRICE_CONTROL_CATEGORIES;
+    return PRICE_CONTROL_CATEGORIES.filter((c) => c.name.toLowerCase().includes(needle));
   }, [searchValue]);
 
   const groupedOptions = useMemo(() => {
-    return filteredOptions.reduce<Record<string, Category[]>>((acc, cat) => {
+    return filteredOptions.reduce<Record<string, PriceControlCategory[]>>((acc, cat) => {
       (acc[cat.group] = acc[cat.group] || []).push(cat);
       return acc;
     }, {});
   }, [filteredOptions]);
 
-  const selectCategory = (cat: Category) => {
+  const selectCategory = (cat: PriceControlCategory) => {
     setSelectedCategory(cat);
     setSearchValue(cat.name);
     setOpen(false);
@@ -120,13 +84,13 @@ export default function PriceControl713({ feature }: { feature: Feature }) {
   }, [open, selectedCategory]);
 
   const cost = parseFloat(form.cost_price);
-  const coeff = selectedCategory ? selectedCategory.limit : 0;
+  const coeff = selectedCategory ? selectedCategory.limit / 100 : 0;
   const expenses = parseFloat(form.additional_expenses);
   const safeCost = Number.isFinite(cost) ? cost : 0;
   const safeExpenses = Number.isFinite(expenses) ? expenses : 0;
   const maxPrice = safeCost + (safeCost * coeff) + safeExpenses;
   const displayMaxPrice = maxPrice.toFixed(2);
-  const markupPercent = Math.round(coeff * 100);
+  const markupPercent = Math.round(selectedCategory ? selectedCategory.limit : 0);
 
   return (
     <SectionContentWrapper feature={feature}>
@@ -201,7 +165,7 @@ export default function PriceControl713({ feature }: { feature: Feature }) {
                                   >
                                     <span className="text-sm">{cat.name}</span>
                                     <span className="text-xs text-neutral-500">
-                                      макс. надбавка {Math.round(cat.limit * 100)}%
+                                      макс. надбавка {cat.limit}%
                                     </span>
                                   </button>
                                 ))}

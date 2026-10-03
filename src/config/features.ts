@@ -70,9 +70,10 @@ export function getIconComponent(name: string) {
 
 const wbCalculator: Feature = {
   id: 'calculator',
-  label: 'Калькулятор юнит-экономики',
+  label: 'Сквозной мега-калькулятор',
   icon: 'Calculator',
-  description: 'Расчет ППЦ и ROI для Wildberries (РБ → РФ)',
+  description:
+    'Юнит-экономика WB (РБ → РФ): экосбор и ФСЗН, тарифы за объём, покатушки, Постановление № 713 и точка безубыточности',
   componentPath: '@/components/features/wb/Calculator',
   group: 'main',
 };
