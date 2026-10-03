@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Calculator as CalculatorIcon,
+  ChevronDown,
+  ChevronUp,
   Coins,
   Leaf,
   Package,
@@ -12,6 +14,7 @@ import {
   RotateCcw,
   Ruler,
   Scale,
+  Settings2,
   ShieldCheck,
   TrendingUp,
   Truck,
@@ -20,10 +23,12 @@ import {
 import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
 import {
+  BREAK_EVEN_ERROR_MESSAGE,
   DEFAULT_MEGA_FORM,
   ECO_FEE_OPTIONS,
   MEGA_CONFIG,
   calculateMegaUnitEconomics,
+  roundMoney,
   toNumber,
   type EcoFeeKind,
   type MegaUnitForm,
@@ -42,6 +47,10 @@ const badgeClass = 'shrink-0 px-3 py-2 text-neutral-500 bg-neutral-50 rounded-lg
 
 const selectClass =
   'w-full px-3 py-2 border border-neutral-300 rounded-lg bg-neutral-50 text-neutral-900 focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent';
+
+/** Все денежные величины перед выводом проходят через roundMoney (защита от float-багов) */
+const formatMoney = (value: number) =>
+  roundMoney(value).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
 const format = (value: number, digits = 2) =>
   (Number.isFinite(value) ? value : 0).toLocaleString('ru-RU', {
@@ -177,6 +186,7 @@ export default function Calculator({ feature }: { feature: Feature }) {
   const [rate, setRate] = useState<number>(MEGA_CONFIG.FALLBACK_RUB_TO_BYN);
   const [rateSource, setRateSource] = useState<'nbrb' | 'fallback'>('fallback');
   const [rateError, setRateError] = useState<string | null>(null);
+  const [tariffSettingsOpen, setTariffSettingsOpen] = useState(false);
 
   const loadRate = React.useCallback(async (force = false) => {
     setRateError(null);
@@ -216,13 +226,13 @@ export default function Calculator({ feature }: { feature: Feature }) {
   const retailAuto = form.retail_price.trim() === '';
   const buyoutPercent = toNumber(form.buyout_rate) || MEGA_CONFIG.DEFAULT_BUYOUT_RATE;
 
-  const heroTone: Tone = !result.breakEvenValid
+  const heroTone: Tone = !result.denominatorValid
     ? 'danger'
     : result.netProfitByn >= 0
       ? 'success'
       : 'danger';
 
-  const heroBox = !result.breakEvenValid
+  const heroBox = !result.denominatorValid
     ? 'bg-red-600 border-red-800 text-white'
     : result.netProfitByn >= 0
       ? 'bg-emerald-50 border-emerald-500 text-neutral-900'
@@ -247,7 +257,7 @@ export default function Calculator({ feature }: { feature: Feature }) {
             Точка безубыточности (ниже опускаться нельзя)
           </p>
 
-          {result.breakEvenValid ? (
+          {result.denominatorValid ? (
             <>
               <p
                 className={cn(
@@ -255,9 +265,9 @@ export default function Calculator({ feature }: { feature: Feature }) {
                   heroTone === 'danger' ? 'text-white' : 'text-emerald-700'
                 )}
               >
-                {format(result.breakEvenByn)} BYN
+                {formatMoney(result.breakEvenByn)} BYN
                 <span className="mx-2 text-2xl sm:text-3xl font-bold opacity-50">/</span>
-                {format(result.breakEvenRub)} ₽
+                {formatMoney(result.breakEvenRub)} ₽
               </p>
               <p
                 className={cn(
@@ -275,21 +285,26 @@ export default function Calculator({ feature }: { feature: Feature }) {
                 )}
               >
                 {result.netProfitByn >= 0
-                  ? `Ваша цена ${format(result.retailPriceByn)} BYN выше точки безубыточности — запас ${format(result.netToLiveByn)} BYN с продажи.`
-                  : `ВНИМАНИЕ: цена ${format(result.retailPriceByn)} BYN НИЖЕ точки безубыточности — убыток ${format(Math.abs(result.netToLiveByn))} BYN с каждой продажи!`}
+                  ? `Ваша цена ${formatMoney(result.retailPriceByn)} BYN выше точки безубыточности — запас ${formatMoney(result.netToLiveByn)} BYN с продажи.`
+                  : `ВНИМАНИЕ: цена ${formatMoney(result.retailPriceByn)} BYN НИЖЕ точки безубыточности — убыток ${formatMoney(Math.abs(result.netToLiveByn))} BYN с каждой продажи!`}
               </p>
             </>
           ) : (
-            <p className="mt-2 text-2xl sm:text-3xl font-extrabold text-white">
-              Расчёт невозможен
-            </p>
-          )}
-
-          {!result.breakEvenValid && (
-            <p className="mt-3 text-sm text-white/90">
-              Сумма комиссии ({format(result.commissionPercent, 1)}%) и налога ({format(result.taxPercent, 1)}%)
-              превышает 100%. Снизьте ставки — иначе цена стремится к бесконечности.
-            </p>
+            <>
+              <p className="mt-2 text-4xl sm:text-5xl lg:text-6xl font-extrabold tabular-nums tracking-tight text-white">
+                {formatMoney(result.breakEvenByn)} BYN
+                <span className="mx-2 text-2xl sm:text-3xl font-bold opacity-50">/</span>
+                {formatMoney(result.breakEvenRub)} ₽
+              </p>
+              <p className="mt-3 text-base sm:text-lg font-bold text-white">
+                {result.denominatorError ?? BREAK_EVEN_ERROR_MESSAGE}
+              </p>
+              <p className="mt-1 text-sm text-white/90">
+                Знаменатель (1 − комиссия {format(result.commissionPercent, 1)}% − налог{' '}
+                {format(result.taxPercent, 1)}%) ≤ 0 — формула не имеет решения, расчёт возвращает 0.
+                Снизьте ставки комиссии и налога.
+              </p>
+            </>
           )}
         </section>
 
@@ -303,9 +318,9 @@ export default function Calculator({ feature }: { feature: Feature }) {
               <div className="min-w-0">
                 <p className="text-sm text-neutral-500">Рекомендованная РРЦ</p>
                 <p className="text-lg font-semibold text-neutral-900 tabular-nums">
-                  {format(result.recommendedPriceByn)} BYN
+                  {formatMoney(result.recommendedPriceByn)} BYN
                 </p>
-                <p className="text-xs text-neutral-400 tabular-nums">{format(result.recommendedPriceRub)} ₽</p>
+                <p className="text-xs text-neutral-400 tabular-nums">{formatMoney(result.recommendedPriceRub)} ₽</p>
               </div>
             </div>
           </div>
@@ -334,9 +349,9 @@ export default function Calculator({ feature }: { feature: Feature }) {
                     result.netToLiveByn >= 0 ? 'text-emerald-700' : 'text-red-600'
                   )}
                 >
-                  {format(result.netToLiveByn)} BYN
+                  {formatMoney(result.netToLiveByn)} BYN
                 </p>
-                <p className="text-xs text-neutral-400 tabular-nums">{format(result.retailPriceRub)} ₽ цена</p>
+                <p className="text-xs text-neutral-400 tabular-nums">{formatMoney(result.retailPriceRub)} ₽ цена</p>
               </div>
             </div>
           </div>
@@ -356,7 +371,7 @@ export default function Calculator({ feature }: { feature: Feature }) {
                 >
                   {format(result.roiPercent, 1)}%
                 </p>
-                <p className="text-xs text-neutral-400">закупка {format(result.costWithEcoByn)} BYN</p>
+                <p className="text-xs text-neutral-400">закупка {formatMoney(result.costWithEcoByn)} BYN</p>
               </div>
             </div>
           </div>
@@ -372,8 +387,8 @@ export default function Calculator({ feature }: { feature: Feature }) {
                   {format(result.trip.volumeLiters, 2)} л
                 </p>
                 <p className="text-xs text-neutral-400">
-                  {result.trip.overLimitLiters > 0
-                    ? `сверх лимита ${format(result.trip.overLimitLiters, 2)} л`
+                  {result.trip.excessLiters > 0
+                    ? `сверх лимита ${format(result.trip.excessLiters, 2)} л`
                     : `в лимите ${MEGA_CONFIG.WB_VOLUME_LIMIT_L} л`}
                 </p>
               </div>
@@ -425,7 +440,7 @@ export default function Calculator({ feature }: { feature: Feature }) {
                   min={0}
                   hint={
                     retailAuto
-                      ? `Пусто = автоподстановка РРЦ ${format(result.recommendedPriceByn)} BYN`
+                      ? `Пусто = автоподстановка РРЦ ${formatMoney(result.recommendedPriceByn)} BYN`
                       : 'Ручная цена: используется для расчёта прибыли и надбавки № 713'
                   }
                 />
@@ -436,7 +451,6 @@ export default function Calculator({ feature }: { feature: Feature }) {
                   value={form.commission_rate}
                   onChange={updateText('commission_rate')}
                   unit="%"
-                  max={99}
                   hint={`Обычно 21–30% · берётся от итоговой цены (сейчас ${format(result.commissionPercent, 1)}%)`}
                 />
 
@@ -446,7 +460,6 @@ export default function Calculator({ feature }: { feature: Feature }) {
                   value={form.tax_rate}
                   onChange={updateText('tax_rate')}
                   unit="%"
-                  max={50}
                   hint="Берётся от итоговой цены продажи"
                 />
 
@@ -508,7 +521,7 @@ export default function Calculator({ feature }: { feature: Feature }) {
                   disabled={ecoWeightDisabled}
                   hint={
                     ecoEnabled
-                      ? `${format(toNumber(form.eco_weight), 1)} г × ${format(result.ecoRateBynPerTon)} BYN/т`
+                      ? `${format(toNumber(form.eco_weight), 1)} г × ${formatMoney(result.ecoRateBynPerTon)} BYN/т`
                       : 'Экосбор не начисляется'
                   }
                 />
@@ -526,10 +539,10 @@ export default function Calculator({ feature }: { feature: Feature }) {
                       ecoEnabled ? 'text-emerald-700' : 'text-neutral-400'
                     )}
                   >
-                    {format(result.ecoFeeKopecks)} коп.
+                    {formatMoney(result.ecoFeeKopecks)} коп.
                   </p>
                   <p className="text-[11px] leading-tight text-neutral-400">
-                    {format(result.ecoFeeByn, 4)} BYN прибавлено к себестоимости
+                    {formatMoney(result.ecoFeeByn)} BYN прибавлено к себестоимости
                   </p>
                 </div>
 
@@ -559,11 +572,11 @@ export default function Calculator({ feature }: { feature: Feature }) {
                     <NumberField
                       id="mega-fszn-batch"
                       label="Объём партии"
-                      value={form.fszn_batch}
-                      onChange={updateText('fszn_batch')}
+                      value={form.batch_volume}
+                      onChange={updateText('batch_volume')}
                       unit="шт"
                       step="1"
-                      hint={`Доля на 1 шт: ${format(result.fsznPerUnitByn, 4)} BYN (${format(
+                      hint={`Доля на 1 шт: ${formatMoney(result.fsznPerUnitByn)} BYN (${format(
                         result.fsznPerUnitByn * 100
                       )} коп.)`}
                     />
@@ -574,7 +587,7 @@ export default function Calculator({ feature }: { feature: Feature }) {
 
             <BlockCard
               title="Блок 4. Габариты упаковки, объём и покатушки"
-              subtitle={`Лимит WB ${MEGA_CONFIG.WB_VOLUME_LIMIT_L} л · доплата +${MEGA_CONFIG.WB_OVERVOLUME_BYN_PER_L.toFixed(2)} BYN за лишний литр`}
+              subtitle={`Лимит WB ${MEGA_CONFIG.WB_VOLUME_LIMIT_L} л · доплата за лишний литр настраивается в инженерных настройках`}
               icon={Ruler}
             >
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -606,23 +619,16 @@ export default function Calculator({ feature }: { feature: Feature }) {
 
               <p className="mt-2 text-xs text-neutral-400">
                 Объём = (Д × Ш × В) ÷ 1000 = {format(result.trip.volumeLiters, 2)} л
-                {result.trip.overLimitLiters > 0 && (
+                {result.trip.excessLiters > 0 && (
                   <span className="text-red-600 font-semibold">
                     {' '}
-                    · доплата за объём {format(result.trip.overLimitFeeByn)} BYN
+                    · доплата за {format(result.trip.excessLiters, 2)} л сверх лимита ={' '}
+                    {formatMoney(result.trip.excessFeeByn)} BYN за поездку
                   </span>
                 )}
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                <NumberField
-                  id="mega-base-delivery"
-                  label="Базовый тариф доставки WB, BYN"
-                  value={form.base_delivery}
-                  onChange={updateText('base_delivery')}
-                  unit="BYN"
-                  hint={`+${format(result.trip.preLimitFeeByn)} BYN за объём сверх 1 л`}
-                />
                 <NumberField
                   id="mega-transit"
                   label="Транзит РБ → РФ, BYN"
@@ -631,13 +637,76 @@ export default function Calculator({ feature }: { feature: Feature }) {
                   unit="BYN"
                 />
                 <NumberField
-                  id="mega-coefficient"
-                  label="Коэффициент склада"
-                  value={form.warehouse_coefficient}
-                  onChange={updateText('warehouse_coefficient')}
-                  unit="×"
-                  hint="1 = 100%, 1.5 = +50% к логистике"
+                  id="mega-batch"
+                  label="Объём партии"
+                  value={form.batch_volume}
+                  onChange={updateText('batch_volume')}
+                  unit="шт"
+                  step="1"
+                  hint="Делит взносы ФСЗН и множит экономию от оптимизации тары"
                 />
+                <NumberField
+                  id="mega-tariff-5l"
+                  label={`Базовый тариф логистики за ${MEGA_CONFIG.WB_VOLUME_LIMIT_L} литров, BYN`}
+                  value={form.base_tariff_5l}
+                  onChange={updateText('base_tariff_5l')}
+                  unit="BYN"
+                  hint={`С учётом коэффициента: ${formatMoney(
+                    result.trip.weightedTariffByn
+                  )} BYN`}
+                />
+              </div>
+
+              {/* Режим неуязвимости: скрытые поля ручной корректировки тарифов */}
+              <div className="mt-4 border border-neutral-200 rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setTariffSettingsOpen((prev) => !prev)}
+                  className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-neutral-700 bg-neutral-50 hover:bg-neutral-100 transition-colors"
+                  aria-expanded={tariffSettingsOpen}
+                >
+                  <Settings2 className="w-4 h-4 text-[var(--primary)]" aria-hidden="true" />
+                  <span className="flex-1 text-left">Инженерные настройки тарифов WB</span>
+                  {tariffSettingsOpen ? (
+                    <ChevronUp className="w-4 h-4" aria-hidden="true" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" aria-hidden="true" />
+                  )}
+                </button>
+
+                {tariffSettingsOpen && (
+                  <div className="p-4 space-y-4">
+                    <p className="text-xs text-neutral-400">
+                      Тарифы WB меняются каждый сезон. Эти поля используются в расчёте вместо
+                      фиксированных цифр — калькулятор останется рабочим при любых новых тарифах.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <NumberField
+                        id="mega-tariff-base"
+                        label="Базовый тариф логистики за 5 литров, BYN"
+                        value={form.base_tariff_5l}
+                        onChange={updateText('base_tariff_5l')}
+                        unit="BYN"
+                      />
+                      <NumberField
+                        id="mega-over-liter"
+                        label="Стоимость избыточного литра, BYN"
+                        value={form.over_liter_cost}
+                        onChange={updateText('over_liter_cost')}
+                        unit="BYN"
+                        hint={`За каждый литр сверх ${MEGA_CONFIG.WB_VOLUME_LIMIT_L} л`}
+                      />
+                      <NumberField
+                        id="mega-clothing-coef"
+                        label="Повышающий коэффициент логистики для Одежды"
+                        value={form.clothing_coefficient}
+                        onChange={updateText('clothing_coefficient')}
+                        unit="×"
+                        hint="1.5 = +50% к тарифной части логистики"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="mt-4">
@@ -666,8 +735,8 @@ export default function Calculator({ feature }: { feature: Feature }) {
                 </div>
                 <p className="text-[11px] leading-tight text-neutral-400 mt-1">
                   Логистика на 1 успешную продажу = поездка × (1 + (100 − выкуп) ÷ выкуп ×{' '}
-                  {MEGA_CONFIG.BUYOUT_TRIP_FACTOR}) = {format(result.trip.totalByn)} ×{' '}
-                  {format(result.tripsPerSale, 2)} = {format(result.deliveryPerSaleByn)} BYN
+                  {MEGA_CONFIG.BUYOUT_TRIP_FACTOR}) = {formatMoney(result.trip.totalByn)} ×{' '}
+                  {format(result.tripsPerSale, 2)} = {formatMoney(result.deliveryPerSaleByn)} BYN
                 </p>
               </div>
             </BlockCard>
@@ -744,8 +813,8 @@ export default function Calculator({ feature }: { feature: Feature }) {
                       {format(result.priceControl.markupPercent, 1)}%
                     </p>
                     <p className="text-[11px] leading-tight text-neutral-400">
-                      ((цена {format(result.retailPriceByn)} − себестоимость{' '}
-                      {format(result.costWithEcoByn)}) ÷ {format(result.costWithEcoByn)}) × 100%
+                      ((цена {formatMoney(result.retailPriceByn)} − себестоимость{' '}
+                      {formatMoney(result.costWithEcoByn)}) ÷ {formatMoney(result.costWithEcoByn)}) × 100%
                     </p>
                   </div>
                 </div>
@@ -802,7 +871,7 @@ export default function Calculator({ feature }: { feature: Feature }) {
                   </p>
                   <p className="mt-3 text-xs text-red-800">
                     Максимально допустимая розничная цена по Пост. 713:{' '}
-                    <strong>{format(result.priceControl.maxRetailPriceByn)} BYN</strong>. Превышение — крупный
+                    <strong>{formatMoney(result.priceControl.maxRetailPriceByn)} BYN</strong>. Превышение — крупный
                     штраф КГК и предписание вернуть разницу с покупателей.
                   </p>
                 </>
@@ -825,12 +894,9 @@ export default function Calculator({ feature }: { feature: Feature }) {
                   </p>
                   <p className="mt-2 text-xs text-neutral-500">
                     {form.p713_enabled
-                      ? `Розничная цена укладывается в регулирование. Потолок цены — ${format(
+                      ? `Розничная цена укладывается в регулирование. Потолок цены — ${formatMoney(
                           result.priceControl.maxRetailPriceByn
-                        )} BYN (${format(
-                          result.priceControl.maxRetailPriceByn / result.rate,
-                          2
-                        )} ₽).`
+                        )} BYN (${formatMoney(result.priceControl.maxRetailPriceRub)} ₽).`
                       : 'Включите регулирование, чтобы контролировать предельную надбавку по каждой категории товара.'}
                   </p>
                 </>
@@ -852,17 +918,27 @@ export default function Calculator({ feature }: { feature: Feature }) {
                       Если уменьшить коробку по каждой грани всего на {MEGA_CONFIG.OPTIMIZER_SHRINK_CM} см
                       (до {format(result.optimizer.length, 1)} × {format(result.optimizer.width, 1)} ×{' '}
                       {format(result.optimizer.height, 1)} см), объём упадёт до{' '}
-                      <strong>{format(result.optimizer.volumeLiters, 2)} л</strong>, и вы сэкономите{' '}
-                      <strong className="text-emerald-700">
-                        {format(result.optimizer.savingByn, 3)} BYN
+                      <strong>{format(result.optimizer.volumeLiters, 2)} л</strong> — это на{' '}
+                      <strong>{format(result.optimizer.excessLitersSaved, 2)} л</strong> меньше лимита WB,
+                      и вы сэкономите <strong className="text-emerald-700">
+                        {formatMoney(result.optimizer.perItemSavingByn)} BYN
                       </strong>{' '}
-                      (≈ {format(result.optimizer.savingRub)} ₽) на логистике каждого товара.
+                      на каждом товаре.
+                    </p>
+                    <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 font-semibold">
+                      Экономия на объёме всей партии ({format(result.batchVolume, 0)} шт):{' '}
+                      <span className="text-emerald-700">
+                        {formatMoney(result.optimizer.batchSavingByn)} BYN
+                      </span>{' '}
+                      (≈ {formatMoney(result.optimizer.batchSavingRub)} ₽)
                     </p>
                     <p className="mt-2 text-xs text-neutral-500">
-                      Сейчас объём {format(result.trip.volumeLiters, 2)} л — это на{' '}
-                      {format(result.trip.overLimitLiters, 2)} л больше лимита WB (
-                      {MEGA_CONFIG.WB_VOLUME_LIMIT_L} л), из-за чего вы платите{' '}
-                      {format(result.trip.overLimitFeeByn)} BYN доплаты за каждую поездку.
+                      Формула: ({format(result.trip.volumeLiters, 2)} − max(
+                      {MEGA_CONFIG.WB_VOLUME_LIMIT_L}, {format(result.optimizer.volumeLiters, 2)})) ×{' '}
+                      {formatMoney(toNumber(form.over_liter_cost))} BYN ×{' '}
+                      {format(result.batchVolume, 0)} шт. Сейчас объём на{' '}
+                      {format(result.trip.excessLiters, 2)} л больше лимита WB, доплата{' '}
+                      {formatMoney(result.trip.excessFeeByn)} BYN за каждую поездку.
                     </p>
                   </div>
                 </div>
@@ -875,8 +951,9 @@ export default function Calculator({ feature }: { feature: Feature }) {
               >
                 <p className="text-sm text-neutral-600">
                   Оптимизировать тару не нужно: доплата за объём не начисляется. Но помните, что
-                  псевдообъём &gt; 5 л у WB — это всегда +{MEGA_CONFIG.WB_OVERVOLUME_BYN_PER_L.toFixed(2)}{' '}
-                  BYN за литр на каждую поездку, включая холостые возвраты.
+                  псевдообъём &gt; {MEGA_CONFIG.WB_VOLUME_LIMIT_L} л у WB — это всегда +{' '}
+                  {formatMoney(toNumber(form.over_liter_cost))} BYN за литр на каждую поездку,
+                  включая холостые возвраты.
                 </p>
               </BlockCard>
             )}
@@ -889,57 +966,57 @@ export default function Calculator({ feature }: { feature: Feature }) {
             >
               <MetricRow
                 label="Закупка"
-                value={`${format(result.costByn)} BYN`}
+                value={`${formatMoney(result.costByn)} BYN`}
                 sub={form.currency === 'RUB' ? 'введено в RUB, пересчитано по курсу' : 'введено в BYN'}
               />
               <MetricRow
                 label="Экосбор на 1 шт"
-                value={`${format(result.ecoFeeKopecks)} коп.`}
+                value={`${formatMoney(result.ecoFeeKopecks)} коп.`}
                 sub={
                   ecoEnabled
-                    ? `${format(toNumber(form.eco_weight), 1)} г × ${format(result.ecoRateBynPerTon)} BYN/т`
+                    ? `${format(toNumber(form.eco_weight), 1)} г × ${formatMoney(result.ecoRateBynPerTon)} BYN/т`
                     : 'не начисляется'
                 }
                 tone={ecoEnabled ? 'warn' : 'muted'}
               />
               <MetricRow
                 label={`Логистика на 1 продажу (выкуп ${format(buyoutPercent, 0)}%)`}
-                value={`${format(result.deliveryPerSaleByn)} BYN`}
-                sub={`${format(result.trip.totalByn)} BYN × ${format(result.tripsPerSale, 2)} поездки`}
+                value={`${formatMoney(result.deliveryPerSaleByn)} BYN`}
+                sub={`${formatMoney(result.trip.totalByn)} BYN × ${format(result.tripsPerSale, 2)} поездки`}
               />
               <MetricRow
                 label="Доля ФСЗН и Белгосстраха"
-                value={`${format(result.fsznPerUnitByn, 4)} BYN`}
+                value={`${formatMoney(result.fsznPerUnitByn)} BYN`}
                 sub={
                   form.fszn_enabled
-                    ? `${format(result.fsznTotalByn)} BYN ÷ ${format(toNumber(form.fszn_batch), 0)} шт`
+                    ? `${formatMoney(result.fsznTotalByn)} BYN ÷ ${format(result.batchVolume, 0)} шт`
                     : 'взносы не учтены'
                 }
                 tone={form.fszn_enabled ? 'warn' : 'muted'}
               />
               <MetricRow
                 label="Итого себестоимость 1 шт"
-                value={`${format(result.totalCostByn)} BYN`}
+                value={`${formatMoney(result.totalCostByn)} BYN`}
                 tone="accent"
               />
 
               <div className="mt-4 pt-3 border-t border-neutral-200">
                 <MetricRow
                   label={`Комиссия WB ${format(result.commissionPercent, 1)}% от цены`}
-                  value={`${format(result.commissionByn)} BYN`}
-                  sub={`от РРЦ ${format(result.recommendedPriceByn)} BYN`}
+                  value={`${formatMoney(result.commissionByn)} BYN`}
+                  sub={`от РРЦ ${formatMoney(result.recommendedPriceByn)} BYN`}
                   tone="muted"
                 />
                 <MetricRow
                   label={`Налог ${format(result.taxPercent, 1)}% от цены`}
-                  value={`${format(result.taxByn)} BYN`}
-                  sub={`от РРЦ ${format(result.recommendedPriceByn)} BYN`}
+                  value={`${formatMoney(result.taxByn)} BYN`}
+                  sub={`от РРЦ ${formatMoney(result.recommendedPriceByn)} BYN`}
                   tone="muted"
                 />
                 <MetricRow
                   label="Чистый остаток «на жизнь»"
-                  value={`${format(result.netToLiveByn)} BYN`}
-                  sub={`цена ${format(result.retailPriceRub)} ₽ за вычетом всех расходов`}
+                  value={`${formatMoney(result.netToLiveByn)} BYN`}
+                  sub={`цена ${formatMoney(result.retailPriceRub)} ₽ за вычетом всех расходов`}
                   tone={result.netToLiveByn >= 0 ? 'success' : 'danger'}
                 />
               </div>
@@ -952,18 +1029,25 @@ export default function Calculator({ feature }: { feature: Feature }) {
               icon={Truck}
             >
               <MetricRow
-                label="Базовая доставка (с объёмом)"
-                value={`${format(result.trip.baseDeliveryByn)} BYN`}
-                sub={`тариф ${format(toNumber(form.base_delivery))} BYN + объём`}
+                label="Тариф за 5 литров WB"
+                value={`${formatMoney(result.trip.tariffByn)} BYN`}
+                sub={`${formatMoney(toNumber(form.base_tariff_5l))} BYN базовый + ${formatMoney(
+                  result.trip.excessFeeByn
+                )} BYN доплата за ${format(result.trip.excessLiters, 2)} л`}
+              />
+              <MetricRow
+                label="Тариф с коэффициентом (одежда)"
+                value={`${formatMoney(result.trip.weightedTariffByn)} BYN`}
+                sub={`коэффициент ×${format(toNumber(form.clothing_coefficient), 2)}`}
               />
               <MetricRow
                 label="Транзит РБ → РФ"
-                value={`${format(result.trip.transitByn)} BYN`}
-                sub={`≈ ${format(result.trip.transitByn / result.rate, 2)} ₽`}
+                value={`${formatMoney(result.trip.transitByn)} BYN`}
+                sub={`≈ ${formatMoney(result.trip.transitByn / result.rate)} ₽`}
               />
               <MetricRow
                 label="Стоимость одной поездки"
-                value={`${format(result.trip.totalByn)} BYN`}
+                value={`${formatMoney(result.trip.totalByn)} BYN`}
                 tone="accent"
               />
               <MetricRow
@@ -974,7 +1058,7 @@ export default function Calculator({ feature }: { feature: Feature }) {
               />
               <MetricRow
                 label="Итоговая логистика на 1 продажу"
-                value={`${format(result.deliveryPerSaleByn)} BYN`}
+                value={`${formatMoney(result.deliveryPerSaleByn)} BYN`}
                 tone="danger"
               />
 
@@ -1000,13 +1084,13 @@ export default function Calculator({ feature }: { feature: Feature }) {
               </div>
             </div>
 
-            {result.netProfitByn < 0 && result.breakEvenValid && (
+            {result.netProfitByn < 0 && result.denominatorValid && (
               <div className="rounded-xl border-2 border-red-500 bg-red-50 p-5 flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
                 <p className="text-sm text-red-800">
-                  Текущая цена {format(result.retailPriceByn)} BYN даёт убыток{' '}
+                  Текущая цена {formatMoney(result.retailPriceByn)} BYN даёт убыток{' '}
                   <strong>{format(Math.abs(result.netToLiveByn))} BYN</strong> с каждой продажи. Поднимите
-                  цену минимум до {format(result.breakEvenByn)} BYN или сократите расходы.
+                  цену минимум до {formatMoney(result.breakEvenByn)} BYN или сократите расходы.
                 </p>
               </div>
             )}

@@ -16,7 +16,7 @@ import {
  *   6. Математический финал: точка безубыточности (обратное раскручивание уравнения).
  *
  * Все расчёты ведутся в BYN, RUB получается делением на курс. Любые нулевые и
- * некорректные значения инпутов не ломают расчёт (защита через `|| 0`).
+ * некорректные значения инпутов не ломают расчёт (защита через `parseFloat(value) || 0`).
  */
 
 export const MEGA_CONFIG = {
@@ -26,25 +26,46 @@ export const MEGA_CONFIG = {
   COMMISSION_RATE: 23,
   /** Базовый лимит объёма одной посылки WB, литры */
   WB_VOLUME_LIMIT_L: 5,
-  /** Доплата за каждый литр сверх лимита WB, BYN */
-  WB_OVERVOLUME_BYN_PER_L: 0.1,
-  /** Базовый порог тарифа WB, до которого объём не тарифицируется, литры */
-  WB_BASE_LIMIT_L: 1,
-  /** Тариф WB за литр сверх базового порога, BYN (≈7 ₽) */
-  WB_PRE_LIMIT_BYN_PER_L: 0.21,
+  /** Базовый тариф логистики за первые 5 литров, BYN */
+  WB_BASE_TARIFF_5L_BYN: 2.0,
+  /** Стоимость каждого избыточного литра сверх лимита WB, BYN */
+  WB_OVERLITER_COST_BYN: 0.1,
+  /** Повышающий коэффициент логистики для одежды */
+  WB_CLOTHING_COEFFICIENT: 1.5,
   /** Коэффициент стоимости холостой поездки (возврат на склад) */
   BUYOUT_TRIP_FACTOR: 1.5,
+  /** Процент выкупа по умолчанию, % */
+  DEFAULT_BUYOUT_RATE: 30,
   /** Экосбор: пластик / плёнка зип-лок, BYN за тонну */
   ECO_PLASTIC_BYN_PER_TON: 90,
   /** Экосбор: картон / бумага, BYN за тонну */
   ECO_PAPER_BYN_PER_TON: 60,
-  /** Процент выкупа по умолчанию, % */
-  DEFAULT_BUYOUT_RATE: 30,
   /** На сколько сантиметров предлагает уменьшить каждую грань «умный оптимизатор», см */
   OPTIMIZER_SHRINK_CM: 2,
+  /** Объём партии по умолчанию, шт */
+  DEFAULT_BATCH_VOLUME: 1000,
   /** Курс 1 RUB → BYN, если официальный недоступен */
   FALLBACK_RUB_TO_BYN: RUB_TO_BYN_WITH_BUFFER,
 } as const;
+
+/**
+ * Округление денежных величин до копеек с защитой от багов плавающей точки JS.
+ * Number.EPSILON компенсирует погрешность вида 1.005 * 100 = 100.49999999999999.
+ */
+export const roundMoney = (num: number): number => {
+  const safe = Number.isFinite(num) ? num : 0;
+  return Math.round((safe + Number.EPSILON) * 100) / 100;
+};
+
+/** Округление неденежных величин (объёмы, проценты, коэффициенты) */
+export const roundTo = (num: number, digits = 2): number => {
+  const safe = Number.isFinite(num) ? num : 0;
+  const factor = Math.pow(10, digits);
+  return Math.round(safe * factor) / factor;
+};
+
+/** Точка Безубыточности: знаменатель ≤ 0 → расчёт невозможен, возвращаем 0 */
+export const BREAK_EVEN_ERROR_MESSAGE = 'Ошибка: Комиссия и Налог превышают 100%!';
 
 export type EcoFeeKind = 'none' | 'plastic' | 'paper' | 'custom';
 
@@ -88,15 +109,19 @@ export interface MegaUnitForm {
 
   fszn_enabled: boolean;
   fszn_quarter: string;
-  fszn_batch: string;
+  /** Объём всей партии, шт (делит взносы ФСЗН и множит экономию оптимизатора) */
+  batch_volume: string;
 
   length: string;
   width: string;
   height: string;
-  base_delivery: string;
   transit: string;
   buyout_rate: string;
-  warehouse_coefficient: string;
+
+  /** Инженерные настройки тарифов WB */
+  base_tariff_5l: string;
+  over_liter_cost: string;
+  clothing_coefficient: string;
 
   p713_enabled: boolean;
   p713_category: string;
@@ -117,31 +142,33 @@ export const DEFAULT_MEGA_FORM: MegaUnitForm = {
 
   fszn_enabled: false,
   fszn_quarter: '720',
-  fszn_batch: '1000',
+  batch_volume: String(MEGA_CONFIG.DEFAULT_BATCH_VOLUME),
 
   length: '30',
   width: '20',
   height: '10',
-  base_delivery: '1.53',
   transit: '3.67',
-  buyout_rate: '30',
-  warehouse_coefficient: '1',
+  buyout_rate: String(MEGA_CONFIG.DEFAULT_BUYOUT_RATE),
+
+  base_tariff_5l: String(MEGA_CONFIG.WB_BASE_TARIFF_5L_BYN),
+  over_liter_cost: String(MEGA_CONFIG.WB_OVERLITER_COST_BYN),
+  clothing_coefficient: String(MEGA_CONFIG.WB_CLOTHING_COEFFICIENT),
 
   p713_enabled: false,
-  p713_category: 'clothes_mw',
+  p713_category: 'clothes_top',
   p713_custom_limit: '30',
 };
 
 export interface TripDelivery {
   volumeLiters: number;
   /** Объём сверх базового лимита WB (5 л) */
-  overLimitLiters: number;
-  /** Доплата за лишние литры, BYN */
-  overLimitFeeByn: number;
-  /** Тариф за объём сверх базового порога (1 л), BYN */
-  preLimitFeeByn: number;
-  /** Базовая стоимость доставки WB с учётом объёма, BYN */
-  baseDeliveryByn: number;
+  excessLiters: number;
+  /** Тариф за первые 5 литров, BYN */
+  tariffByn: number;
+  /** Доплата за избыточные литры, BYN */
+  excessFeeByn: number;
+  /** Тариф с учётом повышающего коэффициента (одежда), BYN */
+  weightedTariffByn: number;
   /** Транзит РБ → РФ, BYN */
   transitByn: number;
   /** Стоимость одной поездки (туда), BYN */
@@ -152,9 +179,18 @@ export interface OptimizerAdvice {
   length: number;
   width: number;
   height: number;
+  /** Оптимальный объём без учёта порога лимита, л */
   volumeLiters: number;
-  savingByn: number;
-  savingRub: number;
+  /** Объём после оптимизации с учётом порога 5 л, л */
+  appliedVolumeLiters: number;
+  /** Сколько литров реально выводится из-под лимита, л */
+  excessLitersSaved: number;
+  /** Экономия на 1 единицу товара, BYN */
+  perItemSavingByn: number;
+  /** Экономия на объёме всей партии, BYN */
+  batchSavingByn: number;
+  /** Экономия на объёме всей партии, RUB */
+  batchSavingRub: number;
 }
 
 export interface PriceControlStatus {
@@ -164,23 +200,27 @@ export interface PriceControlStatus {
   markupPercent: number;
   exceeded: boolean;
   maxRetailPriceByn: number;
+  maxRetailPriceRub: number;
 }
 
 export interface MegaUnitResult {
   rate: number;
 
   costByn: number;
+  costRub: number;
   ecoRateBynPerTon: number;
   ecoFeeKopecks: number;
   ecoFeeByn: number;
   costWithEcoByn: number;
   fsznPerUnitByn: number;
   fsznTotalByn: number;
+  batchVolume: number;
 
   trip: TripDelivery;
   tripsPerSale: number;
   idleTripsPerSale: number;
   deliveryPerSaleByn: number;
+  deliveryPerSaleRub: number;
 
   fixedPerUnitByn: number;
   totalCostByn: number;
@@ -190,7 +230,10 @@ export interface MegaUnitResult {
   commissionByn: number;
   taxByn: number;
 
-  breakEvenValid: boolean;
+  /** Знаменатель (1 − комиссия − налог) корректен */
+  denominatorValid: boolean;
+  /** Сообщение об ошибке знаменателя, если он ≤ 0 */
+  denominatorError: string | null;
   breakEvenByn: number;
   breakEvenRub: number;
 
@@ -208,18 +251,11 @@ export interface MegaUnitResult {
   optimizer: OptimizerAdvice | null;
 }
 
-export const toNumber = (value: string | number | undefined | null): number => {
-  const parsed = typeof value === 'number' ? value : parseFloat(String(value ?? ''));
-  return Number.isFinite(parsed) ? parsed : 0;
-};
+/** Неуязвимое приведение строки инпута к числу: пустое поле → 0 */
+export const toNumber = (value: string | number | undefined | null): number =>
+  parseFloat(String(value ?? '')) || 0;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-
-const round = (value: number, digits = 2): number => {
-  const safe = Number.isFinite(value) ? value : 0;
-  const factor = Math.pow(10, digits);
-  return Math.round(safe * factor) / factor;
-};
 
 /** Объём упаковки в литрах: (Д × Ш × В) / 1000 */
 export function calculateVolumeLiters(length: number, width: number, height: number): number {
@@ -231,38 +267,37 @@ export function calculateVolumeLiters(length: number, width: number, height: num
 
 interface TripDeliveryInput {
   volumeLiters: number;
-  baseDeliveryByn: number;
+  baseTariff5lByn: number;
+  overLiterCostByn: number;
+  clothingCoefficient: number;
   transitByn: number;
-  warehouseCoefficient: number;
 }
 
 /**
- * Стоимость одной поездки WB: базовый тариф + надбавки за объём + транзит РБ → РФ.
- * За каждый литр сверх лимита WB (5 л) начисляется +0.10 BYN.
+ * Стоимость одной поездки WB:
+ * тариф за первые 5 л + доплата за каждый избыточный литр + транзит РБ → РФ.
+ * Повышающий коэффициент (одежда) применяется к тарифной части.
  */
 export function calculateTripDelivery(input: TripDeliveryInput): TripDelivery {
   const volumeLiters = Math.max(0, toNumber(input.volumeLiters));
-  const baseDelivery = Math.max(0, toNumber(input.baseDeliveryByn));
+  const baseTariff = Math.max(0, toNumber(input.baseTariff5lByn));
+  const overLiterCost = Math.max(0, toNumber(input.overLiterCostByn));
+  const coefficient = Math.max(0, toNumber(input.clothingCoefficient));
   const transit = Math.max(0, toNumber(input.transitByn));
-  const coefficient = Math.max(0, toNumber(input.warehouseCoefficient));
 
-  const overPreLimitLiters = Math.max(0, volumeLiters - MEGA_CONFIG.WB_BASE_LIMIT_L);
-  const overLimitLiters = Math.max(0, volumeLiters - MEGA_CONFIG.WB_VOLUME_LIMIT_L);
-
-  const preLimitFeeByn = overPreLimitLiters * MEGA_CONFIG.WB_PRE_LIMIT_BYN_PER_L;
-  const overLimitFeeByn = overLimitLiters * MEGA_CONFIG.WB_OVERVOLUME_BYN_PER_L;
-
-  const volumeAwareBase = baseDelivery + preLimitFeeByn + overLimitFeeByn;
-  const baseDeliveryByn = volumeAwareBase * (coefficient > 0 ? coefficient : 1);
+  const excessLiters = Math.max(0, volumeLiters - MEGA_CONFIG.WB_VOLUME_LIMIT_L);
+  const excessFeeByn = excessLiters * overLiterCost;
+  const tariffByn = baseTariff + excessFeeByn;
+  const weightedTariffByn = tariffByn * coefficient;
 
   return {
-    volumeLiters: round(volumeLiters, 3),
-    overLimitLiters: round(overLimitLiters, 3),
-    overLimitFeeByn: round(overLimitFeeByn, 4),
-    preLimitFeeByn: round(preLimitFeeByn, 4),
-    baseDeliveryByn: round(baseDeliveryByn, 4),
-    transitByn: round(transit, 4),
-    totalByn: round(baseDeliveryByn + transit, 4),
+    volumeLiters: roundTo(volumeLiters, 3),
+    excessLiters: roundTo(excessLiters, 3),
+    tariffByn: roundMoney(tariffByn),
+    excessFeeByn: roundMoney(excessFeeByn),
+    weightedTariffByn: roundMoney(weightedTariffByn),
+    transitByn: roundMoney(transit),
+    totalByn: roundMoney(weightedTariffByn + transit),
   };
 }
 
@@ -274,7 +309,7 @@ export function resolveEcoRate(form: MegaUnitForm): number {
 }
 
 export function calculateMegaUnitEconomics(form: MegaUnitForm, rate: number): MegaUnitResult {
-  const safeRate = rate > 0 ? rate : MEGA_CONFIG.FALLBACK_RUB_TO_BYN;
+  const safeRate = Number.isFinite(rate) && rate > 0 ? rate : MEGA_CONFIG.FALLBACK_RUB_TO_BYN;
   const toByn = (rub: number) => (Number.isFinite(rub) ? rub : 0) * safeRate;
   const toRub = (byn: number) => (safeRate > 0 ? (Number.isFinite(byn) ? byn : 0) / safeRate : 0);
 
@@ -286,13 +321,13 @@ export function calculateMegaUnitEconomics(form: MegaUnitForm, rate: number): Me
   const ecoWeightGrams = Math.max(0, toNumber(form.eco_weight));
   const ecoRateBynPerTon = resolveEcoRate(form);
   const ecoFeeByn = (ecoWeightGrams / 1_000_000) * ecoRateBynPerTon;
-  const ecoFeeKopecks = ecoFeeByn * 100;
-  const costWithEcoByn = costByn + ecoFeeByn;
+  const ecoFeeKopecks = roundMoney(ecoFeeByn * 100);
+  const costWithEcoByn = roundMoney(costByn + ecoFeeByn);
 
   // ─── Блок 3: ФСЗН и Белгосстрах за квартал ───────────────────────────────
-  const fsznBatch = Math.max(0, toNumber(form.fszn_batch));
+  const batchVolume = Math.max(0, toNumber(form.batch_volume));
   const fsznTotalByn = form.fszn_enabled ? Math.max(0, toNumber(form.fszn_quarter)) : 0;
-  const fsznPerUnitByn = fsznBatch > 0 ? fsznTotalByn / fsznBatch : 0;
+  const fsznPerUnitByn = batchVolume > 0 ? fsznTotalByn / batchVolume : 0;
 
   // ─── Блок 4: объём, тарифы WB и покатушки ────────────────────────────────
   const length = Math.max(0, toNumber(form.length));
@@ -300,11 +335,16 @@ export function calculateMegaUnitEconomics(form: MegaUnitForm, rate: number): Me
   const height = Math.max(0, toNumber(form.height));
   const volumeLiters = calculateVolumeLiters(length, width, height);
 
+  const baseTariff5lByn = Math.max(0, toNumber(form.base_tariff_5l));
+  const overLiterCostByn = Math.max(0, toNumber(form.over_liter_cost));
+  const clothingCoefficient = Math.max(0, toNumber(form.clothing_coefficient));
+
   const trip = calculateTripDelivery({
     volumeLiters,
-    baseDeliveryByn: toNumber(form.base_delivery),
-    transitByn: toNumber(form.transit),
-    warehouseCoefficient: toNumber(form.warehouse_coefficient),
+    baseTariff5lByn,
+    overLiterCostByn,
+    clothingCoefficient,
+    transitByn: Math.max(0, toNumber(form.transit)),
   });
 
   const buyoutPercent = clamp(
@@ -322,16 +362,16 @@ export function calculateMegaUnitEconomics(form: MegaUnitForm, rate: number): Me
   const totalCostByn = costWithEcoByn + fixedPerUnitByn;
 
   // ─── Блок 6: обратное раскручивание уравнения юнит-экономики ─────────────
-  const commissionPercent = clamp(toNumber(form.commission_rate), 0, 99);
-  const taxPercent = clamp(toNumber(form.tax_rate), 0, 50);
+  const commissionPercent = clamp(toNumber(form.commission_rate), 0, 100);
+  const taxPercent = clamp(toNumber(form.tax_rate), 0, 100);
   const desiredProfitByn = Math.max(0, toNumber(form.desired_profit));
 
   // Комиссия WB и налог берутся от ИТОГОВОЙ цены продажи, поэтому «цена минус расходы»
-  // делится на (1 - комиссия - налог).
+  // делится на (1 - комиссия - налог). При знаменателе ≤ 0 расчёт физически невозможен.
   const denominator = 1 - commissionPercent / 100 - taxPercent / 100;
-  const breakEvenValid = denominator > 0;
-  const breakEvenByn = breakEvenValid ? totalCostByn / denominator : 0;
-  const recommendedPriceByn = breakEvenValid
+  const denominatorValid = denominator > 0;
+  const breakEvenByn = denominatorValid ? totalCostByn / denominator : 0;
+  const recommendedPriceByn = denominatorValid
     ? (totalCostByn + desiredProfitByn) / denominator
     : 0;
 
@@ -343,7 +383,9 @@ export function calculateMegaUnitEconomics(form: MegaUnitForm, rate: number): Me
     form.retail_price.trim() === ''
       ? recommendedPriceByn
       : Math.max(0, toNumber(form.retail_price));
-  const netProfitByn = retailPriceByn * denominator - totalCostByn;
+  const netProfitByn = denominatorValid
+    ? retailPriceByn * denominator - totalCostByn
+    : -totalCostByn;
   const roiPercent = costWithEcoByn > 0 ? (netProfitByn / costWithEcoByn) * 100 : 0;
 
   // ─── Блок 5: Постановление № 713 ─────────────────────────────────────────
@@ -359,9 +401,10 @@ export function calculateMegaUnitEconomics(form: MegaUnitForm, rate: number): Me
     enabled: form.p713_enabled,
     category,
     limitPercent,
-    markupPercent: round(markupPercent, 1),
+    markupPercent: roundTo(markupPercent, 1),
     exceeded: form.p713_enabled && markupPercent > limitPercent,
-    maxRetailPriceByn: round(costWithEcoByn * (1 + limitPercent / 100), 2),
+    maxRetailPriceByn: roundMoney(costWithEcoByn * (1 + limitPercent / 100)),
+    maxRetailPriceRub: roundMoney(toRub(costWithEcoByn * (1 + limitPercent / 100))),
   };
 
   // ─── Блок 4: умный оптимизатор тары ──────────────────────────────────────
@@ -369,67 +412,74 @@ export function calculateMegaUnitEconomics(form: MegaUnitForm, rate: number): Me
   if (volumeLiters > MEGA_CONFIG.WB_VOLUME_LIMIT_L) {
     const shrink = MEGA_CONFIG.OPTIMIZER_SHRINK_CM;
     const optimized = {
-      length: Math.max(1, round(length - shrink, 1)),
-      width: Math.max(1, round(width - shrink, 1)),
-      height: Math.max(1, round(height - shrink, 1)),
+      length: Math.max(1, roundTo(length - shrink, 1)),
+      width: Math.max(1, roundTo(width - shrink, 1)),
+      height: Math.max(1, roundTo(height - shrink, 1)),
     };
+    // V_opt = (Length − 2) × (Width − 2) × (Height − 2) / 1000
     const optimizedVolume = calculateVolumeLiters(
       optimized.length,
       optimized.width,
       optimized.height
     );
-    const optimizedTrip = calculateTripDelivery({
-      volumeLiters: optimizedVolume,
-      baseDeliveryByn: toNumber(form.base_delivery),
-      transitByn: toNumber(form.transit),
-      warehouseCoefficient: toNumber(form.warehouse_coefficient),
-    });
-    const savingByn = Math.max(0, (trip.totalByn - optimizedTrip.totalByn) * tripsPerSale);
+    // Объём после оптимизации не может опуститься ниже базового лимита WB
+    const appliedVolume = Math.max(MEGA_CONFIG.WB_VOLUME_LIMIT_L, optimizedVolume);
+    const excessLitersSaved = Math.max(0, volumeLiters - appliedVolume);
+    // Экономия = (V_текущий − max(5, V_opt)) × стоимость избыточного литра × объём партии
+    const perItemSavingByn = excessLitersSaved * overLiterCostByn;
+    const batchSavingByn = perItemSavingByn * batchVolume;
 
     optimizer = {
       ...optimized,
-      volumeLiters: round(optimizedVolume, 2),
-      savingByn: round(savingByn, 4),
-      savingRub: round(toRub(savingByn), 2),
+      volumeLiters: roundTo(optimizedVolume, 2),
+      appliedVolumeLiters: roundTo(appliedVolume, 2),
+      excessLitersSaved: roundTo(excessLitersSaved, 2),
+      perItemSavingByn: roundMoney(perItemSavingByn),
+      batchSavingByn: roundMoney(batchSavingByn),
+      batchSavingRub: roundMoney(toRub(batchSavingByn)),
     };
   }
 
   return {
     rate: safeRate,
 
-    costByn: round(costByn, 2),
-    ecoRateBynPerTon: round(ecoRateBynPerTon, 2),
-    ecoFeeKopecks: round(ecoFeeKopecks, 2),
-    ecoFeeByn: round(ecoFeeByn, 4),
-    costWithEcoByn: round(costWithEcoByn, 4),
-    fsznPerUnitByn: round(fsznPerUnitByn, 4),
-    fsznTotalByn: round(fsznTotalByn, 2),
+    costByn: roundMoney(costByn),
+    costRub: roundMoney(toRub(costByn)),
+    ecoRateBynPerTon: roundMoney(ecoRateBynPerTon),
+    ecoFeeKopecks,
+    ecoFeeByn: roundMoney(ecoFeeByn),
+    costWithEcoByn,
+    fsznPerUnitByn: roundMoney(fsznPerUnitByn),
+    fsznTotalByn: roundMoney(fsznTotalByn),
+    batchVolume,
 
     trip,
-    tripsPerSale: round(tripsPerSale, 3),
-    idleTripsPerSale: round(idleTripsPerSale, 3),
-    deliveryPerSaleByn: round(deliveryPerSaleByn, 4),
+    tripsPerSale: roundTo(tripsPerSale, 3),
+    idleTripsPerSale: roundTo(idleTripsPerSale, 3),
+    deliveryPerSaleByn: roundMoney(deliveryPerSaleByn),
+    deliveryPerSaleRub: roundMoney(toRub(deliveryPerSaleByn)),
 
-    fixedPerUnitByn: round(fixedPerUnitByn, 4),
-    totalCostByn: round(totalCostByn, 4),
+    fixedPerUnitByn: roundMoney(fixedPerUnitByn),
+    totalCostByn: roundMoney(totalCostByn),
 
     commissionPercent,
     taxPercent,
-    commissionByn: round(commissionByn, 4),
-    taxByn: round(taxByn, 4),
+    commissionByn: roundMoney(commissionByn),
+    taxByn: roundMoney(taxByn),
 
-    breakEvenValid,
-    breakEvenByn: round(breakEvenByn, 2),
-    breakEvenRub: round(toRub(breakEvenByn), 2),
+    denominatorValid,
+    denominatorError: denominatorValid ? null : BREAK_EVEN_ERROR_MESSAGE,
+    breakEvenByn: roundMoney(breakEvenByn),
+    breakEvenRub: roundMoney(toRub(breakEvenByn)),
 
-    recommendedPriceByn: round(recommendedPriceByn, 2),
-    recommendedPriceRub: round(toRub(recommendedPriceByn), 2),
+    recommendedPriceByn: roundMoney(recommendedPriceByn),
+    recommendedPriceRub: roundMoney(toRub(recommendedPriceByn)),
 
-    retailPriceByn: round(retailPriceByn, 2),
-    retailPriceRub: round(toRub(retailPriceByn), 2),
-    netProfitByn: round(netProfitByn, 2),
-    roiPercent: round(roiPercent, 1),
-    netToLiveByn: round(netProfitByn, 2),
+    retailPriceByn: roundMoney(retailPriceByn),
+    retailPriceRub: roundMoney(toRub(retailPriceByn)),
+    netProfitByn: roundMoney(netProfitByn),
+    roiPercent: roundTo(roiPercent, 1),
+    netToLiveByn: roundMoney(netProfitByn),
 
     priceControl,
     optimizer,

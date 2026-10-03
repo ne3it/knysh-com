@@ -13,34 +13,45 @@ export interface PriceControlCategory {
 }
 
 export const PRICE_CONTROL_CATEGORIES: PriceControlCategory[] = [
-  { id: 'clothes_mw', name: 'Одежда мужская и женская (кроме трикотажа)', group: 'Одежда и обувь', limit: 30 },
-  { id: 'knitwear', name: 'Трикотажные изделия (белье, кофты, футболки)', group: 'Одежда и обувь', limit: 35 },
-  { id: 'shoes', name: 'Обувь мужская и женская', group: 'Одежда и обувь', limit: 35 },
-  { id: 'hosiery', name: 'Чулочно-носочные изделия', group: 'Одежда и обувь', limit: 25 },
+  // Одежда, обувь и текстиль
+  { id: 'clothes_top', name: 'Одежда верхняя, куртки', group: 'Одежда, обувь и текстиль', limit: 30 },
+  { id: 'clothes_light', name: 'Одежда легкая, платья', group: 'Одежда, обувь и текстиль', limit: 30 },
+  { id: 'knitwear', name: 'Трикотаж, свитера', group: 'Одежда, обувь и текстиль', limit: 35 },
+  { id: 'shoes', name: 'Обувь взрослая', group: 'Одежда, обувь и текстиль', limit: 35 },
+  { id: 'bed_linen', name: 'Постельное белье', group: 'Одежда, обувь и текстиль', limit: 30 },
+  { id: 'hosiery', name: 'Чулочно-носочные изделия', group: 'Одежда, обувь и текстиль', limit: 25 },
 
+  // Детские товары
   { id: 'kids_clothes', name: 'Детская одежда и трикотаж', group: 'Детские товары', limit: 30 },
   { id: 'kids_shoes', name: 'Детская обувь', group: 'Детские товары', limit: 35 },
   { id: 'kids_toys', name: 'Детские игрушки и игры', group: 'Детские товары', limit: 30 },
-  { id: 'kids_food', name: 'Детское питание (каши, смеси, пюре)', group: 'Детские товары', limit: 25 },
-  { id: 'diapers', name: 'Подгузники и детские трусики', group: 'Детские товары', limit: 30 },
+  { id: 'diapers_pads', name: 'Подгузники и пеленки', group: 'Детские товары', limit: 30 },
+  { id: 'kids_food', name: 'Детское питание', group: 'Детские товары', limit: 25 },
 
-  { id: 'perfumery', name: 'Парфюмерия и духи', group: 'Косметика и гигиена', limit: 40 },
-  { id: 'decor_cosmetics', name: 'Декоративная косметика (помада, тушь, лаки)', group: 'Косметика и гигиена', limit: 40 },
-  { id: 'skin_care', name: 'Средства для ухода за кожей лица и тела', group: 'Косметика и гигиена', limit: 35 },
-  { id: 'hair_care', name: 'Средства для ухода за волосами (шампуни, бальзамы)', group: 'Косметика и гигиена', limit: 30 },
-  { id: 'oral_care', name: 'Зубная паста, щётки и средства гигиены рта', group: 'Косметика и гигиена', limit: 30 },
-  { id: 'soap_toilet', name: 'Мыло туалетное и твердое', group: 'Косметика и гигиена', limit: 25 },
-  { id: 'hygiene_pads', name: 'Гигиенические пакеты, тампоны, салфетки', group: 'Косметика и гигиена', limit: 30 },
+  // Красота и гигиена
+  { id: 'perfumery', name: 'Парфюмерия и духи', group: 'Красота и гигиена', limit: 40 },
+  { id: 'decor_makeup', name: 'Декоративная косметика', group: 'Красота и гигиена', limit: 40 },
+  { id: 'skin_care', name: 'Уходовая косметика для кожи', group: 'Красота и гигиена', limit: 35 },
+  { id: 'hair_care', name: 'Средства ухода за волосами', group: 'Красота и гигиена', limit: 30 },
+  { id: 'soap_toilet', name: 'Мыло туалетное', group: 'Красота и гигиена', limit: 25 },
+  { id: 'oral_care', name: 'Зубная паста и гигиена рта', group: 'Красота и гигиена', limit: 30 },
+  { id: 'pads_tampons', name: 'Прокладки и тампоны', group: 'Красота и гигиена', limit: 30 },
 
-  { id: 'laundry', name: 'Средства для стирки (порошки, гели, капсулы)', group: 'Бытовая химия', limit: 25 },
-  { id: 'dishwashing', name: 'Средства для мытья посуды', group: 'Бытовая химия', limit: 25 },
-  { id: 'cleaning', name: 'Чистящие средства для дома и сантехники', group: 'Бытовая химия', limit: 25 },
-  { id: 'soap_household', name: 'Мыло хозяйственное', group: 'Бытовая химия', limit: 25 },
+  // Дом, кухня и ремонт
+  { id: 'kitchenware', name: 'Посуда кухонная', group: 'Дом, кухня и ремонт', limit: 30 },
+  { id: 'hand_tools', name: 'Инструменты ручные', group: 'Дом, кухня и ремонт', limit: 30 },
+  { id: 'household_chemicals', name: 'Бытовая химия и порошки', group: 'Дом, кухня и ремонт', limit: 25 },
+  { id: 'lighting', name: 'Светильники и люстры', group: 'Дом, кухня и ремонт', limit: 35 },
+  { id: 'furniture', name: 'Корпусная мебель', group: 'Дом, кухня и ремонт', limit: 30 },
 
-  { id: 'tableware', name: 'Посуда столовая и кухонная', group: 'Хозтовары', limit: 30 },
-  { id: 'home_textile', name: 'Постельное белье и текстиль для дома', group: 'Хозтовары', limit: 30 },
-  { id: 'small_appliances', name: 'Бытовая техника малая (чайники, блендеры)', group: 'Техника', limit: 30 },
-  { id: 'tools', name: 'Инструменты ручные и электроинструменты', group: 'Инструменты', limit: 30 },
+  // Остальные категории
+  { id: 'bags', name: 'Сумки и рюкзаки', group: 'Остальные категории', limit: 21 },
+  { id: 'stationery', name: 'Канцелярия', group: 'Остальные категории', limit: 15 },
+  { id: 'hobby', name: 'Товары для хобби и мозаика', group: 'Остальные категории', limit: 15 },
+  { id: 'sports', name: 'Спортинвентарь', group: 'Остальные категории', limit: 14 },
+  { id: 'zoogoods', name: 'Зоотовары', group: 'Остальные категории', limit: 15 },
+  { id: 'grocery', name: 'Бакалея, чай, кофе', group: 'Остальные категории', limit: 40 },
+  { id: 'nuts_dried', name: 'Орехи и сухофрукты', group: 'Остальные категории', limit: 35 },
 ];
 
 /** Универсальный ручной ввод лимита */
@@ -48,7 +59,7 @@ export const PRICE_CONTROL_CUSTOM_ID = 'p713_custom';
 
 export const PRICE_CONTROL_CUSTOM_CATEGORY: PriceControlCategory = {
   id: PRICE_CONTROL_CUSTOM_ID,
-  name: 'Кастомный лимит (ввести надбавку вручную)',
+  name: 'Другой товар (ввести лимит наценки вручную)',
   group: 'УНИВЕРСАЛЬНЫЙ ВВОД',
   limit: 30,
 };
@@ -58,7 +69,7 @@ export const ALL_PRICE_CONTROL_CATEGORIES: PriceControlCategory[] = [
   PRICE_CONTROL_CUSTOM_CATEGORY,
 ];
 
-export const DEFAULT_PRICE_CONTROL_ID = 'clothes_mw';
+export const DEFAULT_PRICE_CONTROL_ID = 'clothes_top';
 
 export function getPriceControlCategory(id: string): PriceControlCategory {
   return (
