@@ -64,6 +64,47 @@ type Tone = 'default' | 'muted' | 'accent' | 'success' | 'warn' | 'danger';
 
 type RateSource = 'nbrb' | 'fallback' | 'manual';
 
+/**
+ * Три состояния итогового блока. Раньше «красный» статус означал и светлый фон
+ * (убыток), и тёмный (некорректные ставки) — белый текст сливался со светлым фоном.
+ */
+type HeroVariant = 'safe' | 'loss' | 'invalid';
+
+interface HeroPalette {
+  box: string;
+  value: string;
+  label: string;
+  hint: string;
+  strong: string;
+}
+
+const HERO_PALETTE: Record<HeroVariant, HeroPalette> = {
+  // В плюсе: светлый зелёный фон
+  safe: {
+    box: 'bg-emerald-50 border-emerald-500',
+    value: 'text-emerald-700',
+    label: 'text-neutral-600',
+    hint: 'text-neutral-500',
+    strong: 'text-neutral-900',
+  },
+  // Убыток: светлый красный фон — весь текст в красных тонах
+  loss: {
+    box: 'bg-red-50 border-red-500',
+    value: 'text-red-700',
+    label: 'text-red-700',
+    hint: 'text-red-600',
+    strong: 'text-red-900',
+  },
+  // Ставки дают знаменатель ≤ 0: тёмный фон, белый текст контрастен
+  invalid: {
+    box: 'bg-red-600 border-red-800',
+    value: 'text-white',
+    label: 'text-red-50',
+    hint: 'text-red-50/90',
+    strong: 'text-white',
+  },
+};
+
 const RATE_SOURCE_LABELS: Record<RateSource, string> = {
   nbrb: 'курс НБРБ',
   fallback: 'резервный курс (НБРБ недоступен)',
@@ -258,17 +299,13 @@ export default function Calculator({ feature }: { feature: Feature }) {
   const retailAuto = form.retail_price.trim() === '';
   const buyoutPercent = toNumber(form.buyout_rate) || MEGA_CONFIG.DEFAULT_BUYOUT_RATE;
 
-  const heroTone: Tone = !result.denominatorValid
-    ? 'danger'
+  const heroVariant: HeroVariant = !result.denominatorValid
+    ? 'invalid'
     : result.netProfitByn >= 0
-      ? 'success'
-      : 'danger';
+      ? 'safe'
+      : 'loss';
 
-  const heroBox = !result.denominatorValid
-    ? 'bg-red-600 border-red-800 text-white'
-    : result.netProfitByn >= 0
-      ? 'bg-emerald-50 border-emerald-500 text-neutral-900'
-      : 'bg-red-50 border-red-500 text-red-900';
+  const hero = HERO_PALETTE[heroVariant];
 
   const selectedCategory = form.p713_category === PRICE_CONTROL_CUSTOM_ID ? null : result.priceControl.category;
 
@@ -277,15 +314,10 @@ export default function Calculator({ feature }: { feature: Feature }) {
       <div className="max-w-5xl mx-auto space-y-6">
         {/* ═══ БЛОК 6: ТОЧКА БЕЗУБЫТОЧНОСТИ — самая видная точка экрана ═══ */}
         <section
-          className={cn('rounded-xl border-2 p-6 sm:p-8 text-center shadow-sm', heroBox)}
+          className={cn('rounded-xl border-2 p-6 sm:p-8 text-center shadow-sm', hero.box)}
           aria-live="polite"
         >
-          <p
-            className={cn(
-              'text-sm sm:text-base font-medium',
-              heroTone === 'danger' ? 'text-white/90' : 'text-neutral-600'
-            )}
-          >
+          <p className={cn('text-sm sm:text-base font-medium', hero.label)}>
             Точка безубыточности (ниже опускаться нельзя)
           </p>
 
@@ -294,28 +326,18 @@ export default function Calculator({ feature }: { feature: Feature }) {
               <p
                 className={cn(
                   'mt-2 text-4xl sm:text-5xl lg:text-6xl font-extrabold tabular-nums tracking-tight',
-                  heroTone === 'danger' ? 'text-white' : 'text-emerald-700'
+                  hero.value
                 )}
               >
                 {formatMoney(result.breakEvenByn)} BYN
                 <span className="mx-2 text-2xl sm:text-3xl font-bold opacity-50">/</span>
                 {formatMoney(result.breakEvenRub)} ₽
               </p>
-              <p
-                className={cn(
-                  'mt-3 text-xs sm:text-sm',
-                  heroTone === 'danger' ? 'text-white/90' : 'text-neutral-600'
-                )}
-              >
+              <p className={cn('mt-3 text-xs sm:text-sm', hero.hint)}>
                 Минимальная цена продажи = (закупка + экосбор + логистика с учётом покатушек + ФСЗН) ÷{' '}
                 (1 − {format(result.commissionPercent, 1)}% комиссия − {format(result.taxPercent, 1)}% налог)
               </p>
-              <p
-                className={cn(
-                  'mt-1 text-sm font-semibold',
-                  heroTone === 'danger' ? 'text-white' : 'text-neutral-700'
-                )}
-              >
+              <p className={cn('mt-1 text-sm font-semibold', hero.strong)}>
                 {result.netProfitByn >= 0
                   ? `Ваша цена ${formatMoney(result.retailPriceByn)} BYN выше точки безубыточности — запас ${formatMoney(result.netToLiveByn)} BYN с продажи.`
                   : `ВНИМАНИЕ: цена ${formatMoney(result.retailPriceByn)} BYN НИЖЕ точки безубыточности — убыток ${formatMoney(Math.abs(result.netToLiveByn))} BYN с каждой продажи!`}
@@ -323,15 +345,20 @@ export default function Calculator({ feature }: { feature: Feature }) {
             </>
           ) : (
             <>
-              <p className="mt-2 text-4xl sm:text-5xl lg:text-6xl font-extrabold tabular-nums tracking-tight text-white">
+              <p
+                className={cn(
+                  'mt-2 text-4xl sm:text-5xl lg:text-6xl font-extrabold tabular-nums tracking-tight',
+                  hero.value
+                )}
+              >
                 {formatMoney(result.breakEvenByn)} BYN
                 <span className="mx-2 text-2xl sm:text-3xl font-bold opacity-50">/</span>
                 {formatMoney(result.breakEvenRub)} ₽
               </p>
-              <p className="mt-3 text-base sm:text-lg font-bold text-white">
+              <p className={cn('mt-3 text-base sm:text-lg font-bold', hero.strong)}>
                 {result.denominatorError ?? BREAK_EVEN_ERROR_MESSAGE}
               </p>
-              <p className="mt-1 text-sm text-white/90">
+              <p className={cn('mt-1 text-sm', hero.hint)}>
                 Знаменатель (1 − комиссия {format(result.commissionPercent, 1)}% − налог{' '}
                 {format(result.taxPercent, 1)}%) ≤ 0 — формула не имеет решения, расчёт возвращает 0.
                 Снизьте ставки комиссии и налога.
