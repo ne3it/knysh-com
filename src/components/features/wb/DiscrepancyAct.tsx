@@ -94,8 +94,10 @@ interface FormState {
   unp: string;
   /** Название ТК / Фулфилмента (перевозчика) */
   carrier: string;
-  /** Номер накладной / заказа */
-  waybill: string;
+  /** Серия товарно-транспортной накладной формы ТТН-1 */
+  ttnSeries: string;
+  /** Номер товарно-транспортной накладной формы ТТН-1 */
+  ttnNumber: string;
   /** Наименование товара / грузового места — графа 2 таблицы акта */
   productName: string;
   /** Единица измерения — графа 3 таблицы акта */
@@ -124,7 +126,8 @@ const DEFAULT_FORM: FormState = {
   organization: 'ИП Кныш А.А.',
   unp: '193674829',
   carrier: "ООО 'ТК Энергия'",
-  waybill: 'МНСК-2026/10',
+  ttnSeries: 'УТ',
+  ttnNumber: '3761604',
   productName: 'Коробки карго (грузовые места)',
   unit: 'шт.',
   vehicle: '',
@@ -403,7 +406,8 @@ export function buildDiscrepancyActPdf(form: FormState, result: DiscrepancyResul
 
   const blank = (text: string, fallback: string) => text.trim() || fallback;
 
-  const waybill = blank(form.waybill, '__________');
+  const ttnSeries = blank(form.ttnSeries, '____');
+  const ttnNumber = blank(form.ttnNumber, '_______');
   const amount = format(result.claimAmount);
   const shortage = format(result.shortage, 0);
 
@@ -443,7 +447,10 @@ export function buildDiscrepancyActPdf(form: FormState, result: DiscrepancyResul
   writeField('Перевозчик (ТК): ', blank(form.carrier, '________________'));
   writeField('Транспортное средство (автомобиль, гос.номер): ', blank(form.vehicle, '________________________'));
   writeField('Водитель ТК (ФИО, данные удостоверения): ', blank(form.driverName, '____________________________'));
-  writeField('Товаросопроводительный документ: ', `накладная/заказ № ${waybill}`);
+  writeField(
+    'Товаросопроводительный документ: ',
+    `Товарно-транспортная накладная формы ТТН-1, Серия ${ttnSeries} № ${ttnNumber}`
+  );
   writeField('Характер выявленных расхождений: ', result.violation.label);
   cursorY += 4;
 
@@ -459,28 +466,94 @@ export function buildDiscrepancyActPdf(form: FormState, result: DiscrepancyResul
     format(result.unitPrice),
     amount,
   ];
+  // Обязательная итоговая по ТТН-1 строка: на всю ширину таблицы
+  const summaryRow = [
+    `Всего по накладной ТТН-1 Серия ${ttnSeries} № ${ttnNumber} числилось ` +
+      `${format(result.shipped, 0)} мест, фактически принято ${format(result.accepted, 0)} мест.`,
+  ];
   const totalRow = ['ИТОГО', '', '', '', '', '', '—', amount];
 
-  const measureRow = (
-    cells: string[],
-    size: number,
-    style: 'normal' | 'bold',
-    lineHeight: number
-  ) => {
-    doc.setFont('Roboto', style);
-    doc.setFontSize(size);
+  const columnEdges = TABLE_COLUMNS.reduce<number[]>(
+    (edges, column, index) => [...edges, (edges[index] ?? MARGIN.left) + column.width],
+    [MARGIN.left]
+  );
+
+  interface TableRow {
+    cells: string[];
+    /** Объединённые графы: { 0: 8 } — ячейка на ширине граф 1–8 */
+    spans?: Record<number, number>;
+    fill: [number, number, number] | null;
+    size: number;
+    style: 'normal' | 'bold';
+    lineHeight: number;
+    align?: 'left' | 'center' | 'right';
+  }
+
+  const tableRows: TableRow[] = [
+    {
+      cells: TABLE_COLUMNS.map((column) => column.title),
+      fill: [233, 233, 233],
+      size: 6.6,
+      style: 'bold',
+      lineHeight: HEADER_LINE_HEIGHT,
+    },
+    {
+      cells: dataRow,
+      fill: null,
+      size: 8.2,
+      style: 'normal',
+      lineHeight: BODY_LINE_HEIGHT,
+    },
+    {
+      cells: summaryRow,
+      spans: { 0: TABLE_COLUMNS.length },
+      fill: [247, 247, 247],
+      size: 8.2,
+      style: 'normal',
+      lineHeight: BODY_LINE_HEIGHT,
+      align: 'left',
+    },
+    {
+      cells: totalRow,
+      spans: { 0: 6 },
+      fill: [240, 240, 240],
+      size: 8.2,
+      style: 'bold',
+      lineHeight: BODY_LINE_HEIGHT,
+    },
+  ];
+
+  /** Графа i скрыта, если попадает внутрь объединённой ячейки */
+  const isCovered = (row: TableRow, index: number) =>
+    Object.entries(row.spans ?? {}).some(([start, span]) => {
+      const from = Number(start);
+      return index > from && index < from + span;
+    });
+
+  /** Высота строки по максимальному числу строк текста в её ячейках */
+  const measureRow = (row: TableRow) => {
+    doc.setFont('Roboto', row.style);
+    doc.setFontSize(row.size);
     let maxLines = 1;
-    TABLE_COLUMNS.forEach((column, index) => {
-      const lines = doc.splitTextToSize(cells[index], column.width - CELL_PAD_X * 2) as string[];
+
+    Object.entries(row.spans ?? {}).forEach(([start, span]) => {
+      const index = Number(start);
+      const inner = columnEdges[index + span] - columnEdges[index] - CELL_PAD_X * 2;
+      const lines = doc.splitTextToSize(row.cells[index] ?? '', inner) as string[];
       maxLines = Math.max(maxLines, lines.length);
     });
-    return maxLines * lineHeight + 3.2;
+    row.cells.forEach((text, index) => {
+      if (row.spans?.[index] !== undefined || isCovered(row, index) || !text) return;
+      const column = TABLE_COLUMNS[index];
+      const lines = doc.splitTextToSize(text, column.width - CELL_PAD_X * 2) as string[];
+      maxLines = Math.max(maxLines, lines.length);
+    });
+
+    return maxLines * row.lineHeight + 3.2;
   };
 
-  const headerHeight = measureRow(TABLE_COLUMNS.map((c) => c.title), 6.6, 'bold', HEADER_LINE_HEIGHT);
-  const dataHeight = measureRow(dataRow, 8.2, 'normal', BODY_LINE_HEIGHT);
-  const totalHeight = measureRow(totalRow, 8.2, 'bold', BODY_LINE_HEIGHT);
-  const tableHeight = headerHeight + dataHeight + totalHeight;
+  const rowHeights = tableRows.map(measureRow);
+  const tableHeight = rowHeights.reduce((sum, height) => sum + height, 0);
 
   // Таблица не должна разрываться и не должна наезжать на блок подписей
   const signatureReserve = 40;
@@ -491,39 +564,38 @@ export function buildDiscrepancyActPdf(form: FormState, result: DiscrepancyResul
 
   const tableTop = cursorY;
   const tableBottom = tableTop + tableHeight;
-  const columnEdges = TABLE_COLUMNS.reduce<number[]>(
-    (edges, column, index) => [...edges, (edges[index] ?? MARGIN.left) + column.width],
-    [MARGIN.left]
-  );
 
-  const rowBands: { top: number; height: number; fill: [number, number, number] | null }[] = [
-    { top: tableTop, height: headerHeight, fill: [233, 233, 233] },
-    { top: tableTop + headerHeight, height: dataHeight, fill: null },
-    { top: tableTop + headerHeight + dataHeight, height: totalHeight, fill: [240, 240, 240] },
-  ];
+  let bandTop = tableTop;
+  const bands = tableRows.map((row, index) => {
+    const band = { row, top: bandTop, height: rowHeights[index] };
+    bandTop += rowHeights[index];
+    return band;
+  });
 
   // Заливка фона строк
   doc.setLineWidth(0);
-  rowBands.forEach((band) => {
-    if (!band.fill) return;
-    doc.setFillColor(band.fill[0], band.fill[1], band.fill[2]);
-    doc.rect(MARGIN.left, band.top, CONTENT_WIDTH, band.height, 'F');
+  bands.forEach(({ row, top, height }) => {
+    if (!row.fill) return;
+    doc.setFillColor(row.fill[0], row.fill[1], row.fill[2]);
+    doc.rect(MARGIN.left, top, CONTENT_WIDTH, height, 'F');
   });
   doc.setLineWidth(0.35);
   doc.setDrawColor(60, 60, 60);
 
   // Горизонтальные линии сетки
   doc.line(MARGIN.left, tableTop, RIGHT_EDGE, tableTop);
-  rowBands.forEach((band) => {
-    doc.line(MARGIN.left, band.top + band.height, RIGHT_EDGE, band.top + band.height);
+  bands.forEach(({ top, height }) => {
+    doc.line(MARGIN.left, top + height, RIGHT_EDGE, top + height);
   });
 
-  // Вертикальные линии сетки; в строке «ИТОГО» графы 1–6 объединены
-  const mergedRowTop = rowBands[2].top;
+  // Вертикальные линии сетки; внутри объединённых ячеек они не проводятся
   for (let i = 1; i < columnEdges.length - 1; i += 1) {
     const x = columnEdges[i];
-    doc.line(x, tableTop, x, mergedRowTop);
-    if (i >= 6) doc.line(x, mergedRowTop, x, tableBottom);
+    let y = tableTop;
+    bands.forEach(({ row, top, height }) => {
+      if (!isCovered(row, i) && !row.spans?.[i]) doc.line(x, y, x, top + height);
+      y = top + height;
+    });
   }
   doc.line(RIGHT_EDGE, tableTop, RIGHT_EDGE, tableBottom);
   doc.line(MARGIN.left, tableTop, MARGIN.left, tableBottom);
@@ -533,35 +605,44 @@ export function buildDiscrepancyActPdf(form: FormState, result: DiscrepancyResul
   doc.rect(MARGIN.left, tableTop, CONTENT_WIDTH, tableHeight, 'S');
   doc.setLineWidth(0.35);
 
-  // Содержимое ячеек с вертикальным центрированием.
-  // spans задаёт объединённые графы: { 0: 6 } — «ИТОГО» на ширине граф 1–6.
-  const writeCells = (
-    cells: string[],
-    band: { top: number; height: number },
-    size: number,
-    style: 'normal' | 'bold',
-    lineHeight: number,
-    spans: Record<number, number> = {},
-    color: [number, number, number] = INK
-  ) => {
-    const covered = new Set<number>();
-    Object.entries(spans).forEach(([start, span]) => {
-      for (let k = 1; k < span; k += 1) covered.add(Number(start) + k);
-    });
+  // Содержимое ячеек с вертикальным центрированием
+  const writeCells = (band: (typeof bands)[number]) => {
+    const { row, top, height } = band;
+    const centre = top + height / 2 + row.lineHeight * 0.34;
 
-    const centre = band.top + band.height / 2 + lineHeight * 0.34;
-    TABLE_COLUMNS.forEach((column, index) => {
-      const text = cells[index];
-      if (!text || covered.has(index)) return;
-
-      const span = spans[index] ?? 1;
+    Object.entries(row.spans ?? {}).forEach(([start, span]) => {
+      const index = Number(start);
+      const text = row.cells[index];
+      if (!text) return;
       const left = columnEdges[index];
       const right = columnEdges[index + span];
       const inner = right - left - CELL_PAD_X * 2;
 
-      doc.setFont('Roboto', style);
-      doc.setFontSize(size);
-      doc.setTextColor(color[0], color[1], color[2]);
+      doc.setFont('Roboto', row.style);
+      doc.setFontSize(row.size);
+      doc.setTextColor(INK[0], INK[1], INK[2]);
+
+      const lines = doc.splitTextToSize(text, inner) as string[];
+      const align = row.align ?? 'left';
+      const textX =
+        align === 'right' ? right - CELL_PAD_X : align === 'center' ? (left + right) / 2 : left + CELL_PAD_X;
+      doc.text(lines, textX, centre - ((lines.length - 1) * row.lineHeight) / 2, {
+        maxWidth: inner,
+        align,
+        baseline: 'middle',
+      });
+    });
+
+    row.cells.forEach((text, index) => {
+      if (row.spans?.[index] !== undefined || isCovered(row, index) || !text) return;
+      const column = TABLE_COLUMNS[index];
+      const left = columnEdges[index];
+      const right = columnEdges[index + 1];
+      const inner = column.width - CELL_PAD_X * 2;
+
+      doc.setFont('Roboto', row.style);
+      doc.setFontSize(row.size);
+      doc.setTextColor(INK[0], INK[1], INK[2]);
 
       const lines = doc.splitTextToSize(text, inner) as string[];
       // jsPDF выравнивает по точке x: справа — правый край, по центру — ось ячейки
@@ -571,7 +652,7 @@ export function buildDiscrepancyActPdf(form: FormState, result: DiscrepancyResul
           : column.align === 'center'
             ? (left + right) / 2
             : left + CELL_PAD_X;
-      doc.text(lines, textX, centre - ((lines.length - 1) * lineHeight) / 2, {
+      doc.text(lines, textX, centre - ((lines.length - 1) * row.lineHeight) / 2, {
         maxWidth: inner,
         align: column.align,
         baseline: 'middle',
@@ -579,15 +660,7 @@ export function buildDiscrepancyActPdf(form: FormState, result: DiscrepancyResul
     });
   };
 
-  writeCells(
-    TABLE_COLUMNS.map((c) => c.title),
-    rowBands[0],
-    6.6,
-    'bold',
-    HEADER_LINE_HEIGHT
-  );
-  writeCells(dataRow, rowBands[1], 8.2, 'normal', BODY_LINE_HEIGHT);
-  writeCells(totalRow, rowBands[2], 8.2, 'bold', BODY_LINE_HEIGHT, { 0: 6 });
+  bands.forEach(writeCells);
 
   cursorY = tableBottom + 5;
 
@@ -676,7 +749,9 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
 
   const handleDownloadPdf = () => {
     const doc = buildDiscrepancyActPdf(form, result);
-    doc.save(`Akt_Raskhozhdeniya_${sanitizeFileName(form.waybill)}.pdf`);
+    doc.save(
+      `Akt_TTN1_${sanitizeFileName(form.ttnSeries)}_${sanitizeFileName(form.ttnNumber)}.pdf`
+    );
   };
 
   return (
@@ -739,15 +814,37 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1" htmlFor="act-waybill">
-                    Номер накладной/заказа
+                  <label className="block text-sm font-medium text-neutral-700 mb-1" htmlFor="act-ttn-series">
+                    Серия ТТН-1
                   </label>
                   <input
-                    id="act-waybill"
+                    id="act-ttn-series"
                     type="text"
-                    value={form.waybill}
-                    onChange={(e) => updateField('waybill', e.target.value)}
+                    value={form.ttnSeries}
+                    onChange={(e) => updateField('ttnSeries', e.target.value)}
                     className={inputClass}
+                    placeholder="Например: УТ"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="block text-sm font-medium text-neutral-700 mb-1"
+                    htmlFor="act-ttn-number"
+                  >
+                    Номер ТТН-1
+                  </label>
+                  <input
+                    id="act-ttn-number"
+                    type="number"
+                    step="1"
+                    min="0"
+                    inputMode="numeric"
+                    value={form.ttnNumber}
+                    onChange={(e) => updateField('ttnNumber', e.target.value)}
+                    className={inputClass}
+                    placeholder="7 знаков номера"
                     required
                   />
                 </div>
@@ -1061,7 +1158,8 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
                       <span className="font-semibold text-neutral-900">
                         Товаросопроводительный документ:{' '}
                       </span>
-                      накладная/заказ № {form.waybill || '—'}
+                      Товарно-транспортная накладная формы ТТН-1, Серия{' '}
+                      {form.ttnSeries || '—'} № {form.ttnNumber || '—'}
                     </p>
                     <p>
                       <span className="font-semibold text-neutral-900">
@@ -1124,6 +1222,13 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
                         </td>
                         <td className="border border-neutral-400 px-1 py-1.5 text-right font-semibold">
                           {format(result.claimAmount)}
+                        </td>
+                      </tr>
+                      <tr className="bg-neutral-100">
+                        <td className="border border-neutral-400 px-1.5 py-1.5" colSpan={8}>
+                          Всего по накладной ТТН-1 Серия {form.ttnSeries || '—'} №{' '}
+                          {form.ttnNumber || '—'} числилось {format(result.shipped, 0)} мест,
+                          фактически принято {format(result.accepted, 0)} мест.
                         </td>
                       </tr>
                       <tr className="bg-neutral-200">
