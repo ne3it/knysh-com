@@ -34,8 +34,10 @@ import {
   type MegaUnitForm,
 } from '@/lib/services/megaUnitEconomics';
 import {
+  PRICE_CONTROL_CATEGORIES,
   PRICE_CONTROL_CUSTOM_ID,
   PRICE_CONTROL_GROUPS,
+  limitToPercent,
   type PriceControlCategory,
 } from '@/lib/services/priceControl713';
 import type { Feature } from '@/types/section';
@@ -178,7 +180,7 @@ function MetricRow({ label, value, sub, tone = 'default' }: MetricRowProps) {
 }
 
 function categoryLabel(category: PriceControlCategory): string {
-  return `${category.name} — ${category.limit}%`;
+  return `${category.name} — макс. надбавка ${limitToPercent(category.limit)}%`;
 }
 
 export default function Calculator({ feature }: { feature: Feature }) {
@@ -773,7 +775,7 @@ export default function Calculator({ feature }: { feature: Feature }) {
                       className={selectClass}
                     >
                       {PRICE_CONTROL_GROUPS.map(({ group, categories }) => (
-                        <optgroup key={group} label={group}>
+                        <optgroup key={group} label={`${group} (${categories.length})`}>
                           {categories.map((category) => (
                             <option key={category.id} value={category.id}>
                               {categoryLabel(category)}
@@ -782,6 +784,17 @@ export default function Calculator({ feature }: { feature: Feature }) {
                         </optgroup>
                       ))}
                     </select>
+                    <p className="text-[11px] leading-tight text-neutral-400 mt-1">
+                      Справочник Пост. № 713: {PRICE_CONTROL_CATEGORIES.length} позиций в{' '}
+                      {PRICE_CONTROL_GROUPS.length} секторах розничной торговли РБ. Сектор:{' '}
+                      <span className="font-medium text-neutral-600">
+                        {result.priceControl.category.group}
+                      </span>
+                      , лимит{' '}
+                      <span className="font-medium text-neutral-600">
+                        {format(result.priceControl.limitPercent, 1)}%
+                      </span>
+                    </p>
                   </div>
 
                   {form.p713_category === PRICE_CONTROL_CUSTOM_ID && (
@@ -815,6 +828,22 @@ export default function Calculator({ feature }: { feature: Feature }) {
                     <p className="text-[11px] leading-tight text-neutral-400">
                       ((цена {formatMoney(result.retailPriceByn)} − себестоимость{' '}
                       {formatMoney(result.costWithEcoByn)}) ÷ {formatMoney(result.costWithEcoByn)}) × 100%
+                    </p>
+                    <p
+                      className={cn(
+                        'mt-1 text-[11px] font-medium',
+                        result.priceControl.exceeded ? 'text-red-700' : 'text-emerald-700'
+                      )}
+                    >
+                      {result.priceControl.exceeded
+                        ? `ПРЕВЫШЕНИЕ на ${format(
+                            result.priceControl.markupPercent - result.priceControl.limitPercent,
+                            1
+                          )} п.п. сверх лимита ${format(result.priceControl.limitPercent, 1)}%`
+                        : `в пределах лимита ${format(result.priceControl.limitPercent, 1)}% (запас ${format(
+                            result.priceControl.limitPercent - result.priceControl.markupPercent,
+                            1
+                          )} п.п.)`}
                     </p>
                   </div>
                 </div>
@@ -854,8 +883,8 @@ export default function Calculator({ feature }: { feature: Feature }) {
               subtitle={
                 form.p713_enabled
                   ? selectedCategory
-                    ? `Категория: ${selectedCategory.name}`
-                    : 'Кастомный лимит надбавки'
+                    ? `${selectedCategory.group}: ${selectedCategory.name}`
+                    : `Кастомный лимит надбавки (${format(result.priceControl.limitPercent, 1)}%)`
                   : 'Регулирование выключено — включите чекбокс в блоке 5'
               }
               icon={Scale}

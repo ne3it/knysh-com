@@ -3,7 +3,11 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { AlertTriangle, ChevronDown, Scale } from 'lucide-react';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
-import { PRICE_CONTROL_CATEGORIES, type PriceControlCategory } from '@/lib/services/priceControl713';
+import {
+  PRICE_CONTROL_CATEGORIES,
+  limitToPercent,
+  type PriceControlCategory,
+} from '@/lib/services/priceControl713';
 import type { Feature } from '@/types/section';
 
 interface FormState {
@@ -84,13 +88,13 @@ export default function PriceControl713({ feature }: { feature: Feature }) {
   }, [open, selectedCategory]);
 
   const cost = parseFloat(form.cost_price);
-  const coeff = selectedCategory ? selectedCategory.limit / 100 : 0;
+  const coeff = selectedCategory ? selectedCategory.limit : 0;
   const expenses = parseFloat(form.additional_expenses);
   const safeCost = Number.isFinite(cost) ? cost : 0;
   const safeExpenses = Number.isFinite(expenses) ? expenses : 0;
   const maxPrice = safeCost + (safeCost * coeff) + safeExpenses;
   const displayMaxPrice = maxPrice.toFixed(2);
-  const markupPercent = Math.round(selectedCategory ? selectedCategory.limit : 0);
+  const markupPercent = selectedCategory ? limitToPercent(selectedCategory.limit) : 0;
 
   return (
     <SectionContentWrapper feature={feature}>
@@ -165,7 +169,7 @@ export default function PriceControl713({ feature }: { feature: Feature }) {
                                   >
                                     <span className="text-sm">{cat.name}</span>
                                     <span className="text-xs text-neutral-500">
-                                      макс. надбавка {cat.limit}%
+                                      макс. надбавка {limitToPercent(cat.limit)}%
                                     </span>
                                   </button>
                                 ))}

@@ -1,5 +1,6 @@
 import { RUB_TO_BYN_WITH_BUFFER } from './wbConfig';
 import {
+  DEFAULT_PRICE_CONTROL_ID,
   PRICE_CONTROL_CUSTOM_ID,
   getPriceControlCategory,
   type PriceControlCategory,
@@ -155,7 +156,7 @@ export const DEFAULT_MEGA_FORM: MegaUnitForm = {
   clothing_coefficient: String(MEGA_CONFIG.WB_CLOTHING_COEFFICIENT),
 
   p713_enabled: false,
-  p713_category: 'clothes_top',
+  p713_category: DEFAULT_PRICE_CONTROL_ID,
   p713_custom_limit: '30',
 };
 
@@ -196,6 +197,7 @@ export interface OptimizerAdvice {
 export interface PriceControlStatus {
   enabled: boolean;
   category: PriceControlCategory;
+  /** Предельная надбавка из справочника, % (например 30) */
   limitPercent: number;
   markupPercent: number;
   exceeded: boolean;
@@ -390,10 +392,12 @@ export function calculateMegaUnitEconomics(form: MegaUnitForm, rate: number): Me
 
   // ─── Блок 5: Постановление № 713 ─────────────────────────────────────────
   const category = getPriceControlCategory(form.p713_category);
-  const limitPercent =
-    form.p713_category === PRICE_CONTROL_CUSTOM_ID
-      ? Math.max(0, toNumber(form.p713_custom_limit))
-      : category.limit;
+  const isCustomLimit = form.p713_category === PRICE_CONTROL_CUSTOM_ID;
+  // Справочник хранит лимит как долю (0.30), ручной ввод — сразу в процентах
+  const limitRatio = isCustomLimit
+    ? Math.max(0, toNumber(form.p713_custom_limit)) / 100
+    : category.limit;
+  const limitPercent = roundTo(limitRatio * 100, 1);
   const markupPercent =
     costWithEcoByn > 0 ? ((retailPriceByn - costWithEcoByn) / costWithEcoByn) * 100 : 0;
 
@@ -403,8 +407,8 @@ export function calculateMegaUnitEconomics(form: MegaUnitForm, rate: number): Me
     limitPercent,
     markupPercent: roundTo(markupPercent, 1),
     exceeded: form.p713_enabled && markupPercent > limitPercent,
-    maxRetailPriceByn: roundMoney(costWithEcoByn * (1 + limitPercent / 100)),
-    maxRetailPriceRub: roundMoney(toRub(costWithEcoByn * (1 + limitPercent / 100))),
+    maxRetailPriceByn: roundMoney(costWithEcoByn * (1 + limitRatio)),
+    maxRetailPriceRub: roundMoney(toRub(costWithEcoByn * (1 + limitRatio))),
   };
 
   // ─── Блок 4: умный оптимизатор тары ──────────────────────────────────────
