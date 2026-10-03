@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, Download, FileText, RotateCcw, Scale } from 'lucide-react';
+import { AlertTriangle, Download, FileText, Package, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
 import { jsPDF } from 'jspdf';
@@ -87,6 +87,59 @@ export function getViolation(type: string): ViolationOption {
   return VIOLATION_GROUPS[0].violations[0];
 }
 
+/**
+ * Строка спецификации товаров — одна позиция в рамках одной ТТН-1.
+ * Акт может оформляться на многострочную поставку: в одной накладной
+ * едет несколько разных товаров, каждый со своими количествами и ценой.
+ */
+export interface SpecificationRow {
+  /** Стабильный ключ строки: сохраняется при пересчётах и удалении соседних строк */
+  id: string;
+  /** Наименование товара / грузового места — графа 2 таблицы акта */
+  productName: string;
+  /** Единица измерения — графа 3 таблицы акта */
+  unit: string;
+  /** Отправлено по накладной, шт. */
+  shipped: string;
+  /** Фактически принято складом, шт. */
+  accepted: string;
+  /** Стоимость 1 единицы товара (упущенная цена продажи), BYN */
+  unitPrice: string;
+}
+
+/** Значения строки спецификации без служебного ключа */
+type SpecificationValues = Omit<SpecificationRow, 'id'>;
+
+/** Первая строка спецификации предзаполняется демонстрационными значениями */
+export const DEFAULT_SPECIFICATION: SpecificationValues = {
+  productName: 'Платье женское базовое',
+  unit: 'шт.',
+  shipped: '100',
+  accepted: '95',
+  unitPrice: '40',
+};
+
+/** Добавляемые пользователем строки создаются пустыми (кроме единицы измерения) */
+const EMPTY_SPECIFICATION: SpecificationValues = {
+  productName: '',
+  unit: 'шт.',
+  shipped: '',
+  accepted: '',
+  unitPrice: '',
+};
+
+let specificationRowSeq = 0;
+
+/** Идентификатор строки не зависит от её позиции в массиве */
+const nextSpecificationId = () => {
+  specificationRowSeq += 1;
+  return `spec-${specificationRowSeq}`;
+};
+
+function createSpecificationRow(values: SpecificationValues = EMPTY_SPECIFICATION): SpecificationRow {
+  return { id: nextSpecificationId(), ...values };
+}
+
 interface FormState {
   /** Название ИП/ООО заявителя */
   organization: string;
@@ -98,10 +151,6 @@ interface FormState {
   ttnSeries: string;
   /** Номер товарно-транспортной накладной формы ТТН-1 */
   ttnNumber: string;
-  /** Наименование товара / грузового места — графа 2 таблицы акта */
-  productName: string;
-  /** Единица измерения — графа 3 таблицы акта */
-  unit: string;
   /** Транспортное средство перевозчика (автомобиль, гос. номер) */
   vehicle: string;
   /** Водитель ТК: ФИО и данные удостоверения */
@@ -114,32 +163,24 @@ interface FormState {
   violation: ViolationType;
   /** Кастомное правовое обоснование (только для law_custom) */
   customLaw: string;
-  /** Отправлено по накладной, шт. */
-  shipped: string;
-  /** Фактически принято складом, шт. */
-  accepted: string;
-  /** Стоимость 1 единицы товара, BYN */
-  unitPrice: string;
+  /** Позиции товаров по ТТН-1 — многострочная спецификация акта */
+  specification: SpecificationRow[];
 }
 
-const DEFAULT_FORM: FormState = {
+const createDefaultForm = (): FormState => ({
   organization: 'ИП Кныш А.А.',
   unp: '193674829',
   carrier: "ООО 'ТК Энергия'",
   ttnSeries: 'УТ',
   ttnNumber: '3761604',
-  productName: 'Коробки карго (грузовые места)',
-  unit: 'шт.',
   vehicle: '',
   driverName: '',
   receiverName: 'Кныш А.А.',
   place: 'г. Минск',
   violation: DEFAULT_VIOLATION_TYPE,
   customLaw: '',
-  shipped: '100',
-  accepted: '95',
-  unitPrice: '40',
-};
+  specification: [createSpecificationRow(DEFAULT_SPECIFICATION)],
+});
 
 const inputClass =
   'w-full px-3 py-2 border border-neutral-300 rounded-lg text-neutral-900 focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent';
@@ -147,14 +188,30 @@ const inputClass =
 const selectClass =
   'w-full px-3 py-2 border border-neutral-300 rounded-lg bg-neutral-50 text-neutral-900 focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent';
 
-export interface DiscrepancyResult {
-  shipped: number;
-  accepted: number;
-  /** Отправлено − принято, без отрицательных значений */
+/** Строка спецификации с посчитанными величинами */
+export interface SpecificationRowResult extends SpecificationRow {
+  /** Отправлено, шт. */
+  shippedQty: number;
+  /** Фактически принято, шт. */
+  acceptedQty: number;
+  /** Цена 1 единицы, BYN */
+  unitPriceValue: number;
+  /** Недостача = Отправлено − Принято, без отрицательных значений */
   shortage: number;
-  /** Недостача = Отправлено − Фактически принято */
-  unitPrice: number;
-  /** Сумма претензии = Недостача * Стоимость 1 единицы */
+  /** Сумма ущерба строки = Недостача * Цена 1 ед. */
+  amount: number;
+}
+
+export interface DiscrepancyResult {
+  /** Посчитанные строки спецификации в порядке следования */
+  rows: SpecificationRowResult[];
+  /** Сумма «отправлено» по всем позициям ТТН-1, шт. */
+  shipped: number;
+  /** Сумма «фактически принято» по всем позициям ТТН-1, шт. */
+  accepted: number;
+  /** Общее количество утерянного товара по всей ТТН-1, шт. */
+  shortage: number;
+  /** Общая сумма ущерба по всей ТТН-1, BYN */
   claimAmount: number;
   violation: ViolationOption;
 }
@@ -165,24 +222,57 @@ const toNumber = (value: string) => {
 };
 
 /**
- * Расчёт суммы ущерба.
- * Недостача = Отправлено − Фактически принято; Сумма претензии = Недостача * Цена 1 ед.
+ * Расчёт одной позиции спецификации.
+ * Недостача = Отправлено − Фактически принято; Ущерб = Недостача * Цена 1 ед.
  * Отрицательные значения (перебор) и нечисловой ввод приводятся к нулю.
  */
-export function calculateDiscrepancy(form: FormState): DiscrepancyResult {
-  const shipped = Math.max(0, toNumber(form.shipped));
-  const accepted = Math.max(0, toNumber(form.accepted));
-  const unitPrice = Math.max(0, toNumber(form.unitPrice));
-  const shortage = Math.max(0, shipped - accepted);
+export function calculateSpecificationRow(row: SpecificationRow): SpecificationRowResult {
+  const shippedQty = Math.max(0, toNumber(row.shipped));
+  const acceptedQty = Math.max(0, toNumber(row.accepted));
+  const unitPriceValue = Math.max(0, toNumber(row.unitPrice));
+  const shortage = Math.max(0, shippedQty - acceptedQty);
 
   return {
-    shipped,
-    accepted,
+    ...row,
+    shippedQty,
+    acceptedQty,
+    unitPriceValue,
     shortage,
-    unitPrice,
-    claimAmount: shortage * unitPrice,
+    amount: shortage * unitPriceValue,
+  };
+}
+
+/**
+ * Сводный расчёт по всей ТТН-1: недостача и сумма ущерба циклически
+ * суммируются по всем позициям спецификации.
+ */
+export function calculateDiscrepancy(form: FormState): DiscrepancyResult {
+  const rows = form.specification.map(calculateSpecificationRow);
+
+  return {
+    rows,
+    shipped: rows.reduce((sum, row) => sum + row.shippedQty, 0),
+    accepted: rows.reduce((sum, row) => sum + row.acceptedQty, 0),
+    shortage: rows.reduce((sum, row) => sum + row.shortage, 0),
+    claimAmount: rows.reduce((sum, row) => sum + row.amount, 0),
     violation: getViolation(form.violation),
   };
+}
+
+/**
+ * Позиция считается заполненной, если пользователь ввёл наименование или
+ * хотя бы одно число. Единица измерения в расчёт не входит: у новой строки
+ * она по умолчанию «шт.», и иначе пустая строка попала бы в таблицу акта.
+ */
+function isFilledRow(row: SpecificationRow) {
+  return [row.productName, row.shipped, row.accepted, row.unitPrice].some(
+    (value) => value.trim() !== ''
+  );
+}
+
+/** Позиции, попадающие в таблицу акта: все заполненные строки спецификации */
+export function filledSpecificationRows(rows: SpecificationRowResult[]) {
+  return rows.filter(isFilledRow);
 }
 
 const format = (value: number, digits = 2) =>
@@ -302,22 +392,43 @@ interface TableColumn {
 
 /**
  * Жёсткая сетка таблицы расхождений: 8 граф суммарной шириной 190 мм
- * (при полях по 10 мм). Графы 1–6 числовые, 7–8 денежные.
+ * (при полях по 10 мм). Одна строка спецификации занимает одну строку таблицы,
+ * поэтому графы рассчитаны на любое количество позиций.
  */
 const TABLE_COLUMNS: TableColumn[] = [
-  { title: '№', width: 9, align: 'center' },
-  { title: 'Наименование товара / грузового места', width: 43, align: 'left' },
-  { title: 'Ед. изм.', width: 13, align: 'center' },
-  { title: 'Числилось по документам, шт.', width: 25, align: 'center' },
-  { title: 'Фактически принято, шт.', width: 25, align: 'center' },
-  { title: 'Расхождение / Недостача, шт.', width: 25, align: 'center' },
-  { title: 'Стоимость за ед., BYN', width: 21, align: 'right' },
-  { title: 'Сумма ущерба, BYN', width: 29, align: 'right' },
+  { title: '№', width: 8, align: 'center' },
+  { title: 'Наименование товара', width: 45, align: 'left' },
+  { title: 'Ед.', width: 12, align: 'center' },
+  { title: 'Числилось (шт)', width: 23, align: 'center' },
+  { title: 'Фактически (шт)', width: 23, align: 'center' },
+  { title: 'Недостача (шт)', width: 23, align: 'center' },
+  { title: 'Цена (BYN)', width: 26, align: 'right' },
+  { title: 'Сумма (BYN)', width: 30, align: 'right' },
 ];
 
 const CELL_PAD_X = 1.6;
 const HEADER_LINE_HEIGHT = 3.2;
 const BODY_LINE_HEIGHT = 3.6;
+
+/** Строка таблицы акта: ячейки, объединённые графы и оформление */
+interface TableRow {
+  cells: string[];
+  /** Объединённые графы: { 0: 8 } — ячейка на ширине граф 1–8 */
+  spans?: Record<number, number>;
+  /** Заливка фона строки, null — без заливки */
+  fill: [number, number, number] | null;
+  size: number;
+  style: 'normal' | 'bold';
+  lineHeight: number;
+  /** Выравнивание для объединённых ячеек; обычные графы берут выравнивание из TABLE_COLUMNS */
+  align?: 'left' | 'center' | 'right';
+}
+
+/** Строка таблицы с рассчитанной высотой отрисовки */
+interface PlacedRow {
+  row: TableRow;
+  height: number;
+}
 
 /**
  * Формирует первичный двусторонний Акт о расхождениях по форме,
@@ -454,74 +565,30 @@ export function buildDiscrepancyActPdf(form: FormState, result: DiscrepancyResul
   writeField('Характер выявленных расхождений: ', result.violation.label);
   cursorY += 4;
 
-  /* ── 3. ОФИЦИАЛЬНАЯ ТАБЛИЦА РАСХОЖДЕНИЙ ────────────────────────────── */
+  /* ── 3. ОФИЦИАЛЬНАЯ ТАБЛИЦА РАСХОЖДЕНИЙ (МНОГОСТРОЧНАЯ) ────────────── */
 
-  const dataRow = [
-    '1',
-    blank(form.productName, '________________'),
-    blank(form.unit, 'шт.'),
-    format(result.shipped, 0),
-    format(result.accepted, 0),
-    shortage,
-    format(result.unitPrice),
-    amount,
-  ];
-  // Обязательная итоговая по ТТН-1 строка: на всю ширину таблицы
-  const summaryRow = [
-    `Всего по накладной ТТН-1 Серия ${ttnSeries} № ${ttnNumber} числилось ` +
-      `${format(result.shipped, 0)} мест, фактически принято ${format(result.accepted, 0)} мест.`,
-  ];
-  const totalRow = ['ИТОГО', '', '', '', '', '', '—', amount];
+  // Все позиции спецификации попадают в таблицу последовательно, своими строками
+  const bodyRows: TableRow[] = filledSpecificationRows(result.rows).map((row, index) => ({
+    cells: [
+      String(index + 1),
+      blank(row.productName, '________________'),
+      blank(row.unit, 'шт.'),
+      format(row.shippedQty, 0),
+      format(row.acceptedQty, 0),
+      format(row.shortage, 0),
+      format(row.unitPriceValue),
+      format(row.amount),
+    ],
+    fill: null,
+    size: 8.2,
+    style: 'normal',
+    lineHeight: BODY_LINE_HEIGHT,
+  }));
 
   const columnEdges = TABLE_COLUMNS.reduce<number[]>(
     (edges, column, index) => [...edges, (edges[index] ?? MARGIN.left) + column.width],
     [MARGIN.left]
   );
-
-  interface TableRow {
-    cells: string[];
-    /** Объединённые графы: { 0: 8 } — ячейка на ширине граф 1–8 */
-    spans?: Record<number, number>;
-    fill: [number, number, number] | null;
-    size: number;
-    style: 'normal' | 'bold';
-    lineHeight: number;
-    align?: 'left' | 'center' | 'right';
-  }
-
-  const tableRows: TableRow[] = [
-    {
-      cells: TABLE_COLUMNS.map((column) => column.title),
-      fill: [233, 233, 233],
-      size: 6.6,
-      style: 'bold',
-      lineHeight: HEADER_LINE_HEIGHT,
-    },
-    {
-      cells: dataRow,
-      fill: null,
-      size: 8.2,
-      style: 'normal',
-      lineHeight: BODY_LINE_HEIGHT,
-    },
-    {
-      cells: summaryRow,
-      spans: { 0: TABLE_COLUMNS.length },
-      fill: [247, 247, 247],
-      size: 8.2,
-      style: 'normal',
-      lineHeight: BODY_LINE_HEIGHT,
-      align: 'left',
-    },
-    {
-      cells: totalRow,
-      spans: { 0: 6 },
-      fill: [240, 240, 240],
-      size: 8.2,
-      style: 'bold',
-      lineHeight: BODY_LINE_HEIGHT,
-    },
-  ];
 
   /** Графа i скрыта, если попадает внутрь объединённой ячейки */
   const isCovered = (row: TableRow, index: number) =>
@@ -552,62 +619,8 @@ export function buildDiscrepancyActPdf(form: FormState, result: DiscrepancyResul
     return maxLines * row.lineHeight + 3.2;
   };
 
-  const rowHeights = tableRows.map(measureRow);
-  const tableHeight = rowHeights.reduce((sum, height) => sum + height, 0);
-
-  // Таблица не должна разрываться и не должна наезжать на блок подписей
-  const signatureReserve = 40;
-  if (cursorY + tableHeight > pageBottom() - signatureReserve) {
-    doc.addPage();
-    cursorY = MARGIN.top;
-  }
-
-  const tableTop = cursorY;
-  const tableBottom = tableTop + tableHeight;
-
-  let bandTop = tableTop;
-  const bands = tableRows.map((row, index) => {
-    const band = { row, top: bandTop, height: rowHeights[index] };
-    bandTop += rowHeights[index];
-    return band;
-  });
-
-  // Заливка фона строк
-  doc.setLineWidth(0);
-  bands.forEach(({ row, top, height }) => {
-    if (!row.fill) return;
-    doc.setFillColor(row.fill[0], row.fill[1], row.fill[2]);
-    doc.rect(MARGIN.left, top, CONTENT_WIDTH, height, 'F');
-  });
-  doc.setLineWidth(0.35);
-  doc.setDrawColor(60, 60, 60);
-
-  // Горизонтальные линии сетки
-  doc.line(MARGIN.left, tableTop, RIGHT_EDGE, tableTop);
-  bands.forEach(({ top, height }) => {
-    doc.line(MARGIN.left, top + height, RIGHT_EDGE, top + height);
-  });
-
-  // Вертикальные линии сетки; внутри объединённых ячеек они не проводятся
-  for (let i = 1; i < columnEdges.length - 1; i += 1) {
-    const x = columnEdges[i];
-    let y = tableTop;
-    bands.forEach(({ row, top, height }) => {
-      if (!isCovered(row, i) && !row.spans?.[i]) doc.line(x, y, x, top + height);
-      y = top + height;
-    });
-  }
-  doc.line(RIGHT_EDGE, tableTop, RIGHT_EDGE, tableBottom);
-  doc.line(MARGIN.left, tableTop, MARGIN.left, tableBottom);
-
-  // Утолщённая рамка таблицы
-  doc.setLineWidth(0.8);
-  doc.rect(MARGIN.left, tableTop, CONTENT_WIDTH, tableHeight, 'S');
-  doc.setLineWidth(0.35);
-
   // Содержимое ячеек с вертикальным центрированием
-  const writeCells = (band: (typeof bands)[number]) => {
-    const { row, top, height } = band;
+  const writeCells = (row: TableRow, top: number, height: number) => {
     const centre = top + height / 2 + row.lineHeight * 0.34;
 
     Object.entries(row.spans ?? {}).forEach(([start, span]) => {
@@ -660,9 +673,145 @@ export function buildDiscrepancyActPdf(form: FormState, result: DiscrepancyResul
     });
   };
 
-  bands.forEach(writeCells);
+  const HEADER_FILL: [number, number, number] = [233, 233, 233];
 
-  cursorY = tableBottom + 5;
+  /** Отрисовка непрерывного фрагмента таблицы: рамка, сетка и содержимое ячеек */
+  const drawTableChunk = (chunk: PlacedRow[], top: number) => {
+    const height = chunk.reduce((sum, placed) => sum + placed.height, 0);
+    const bottom = top + height;
+
+    doc.setLineWidth(0);
+    let y = top;
+    chunk.forEach(({ row, height: rowHeight }) => {
+      if (row.fill) {
+        doc.setFillColor(row.fill[0], row.fill[1], row.fill[2]);
+        doc.rect(MARGIN.left, y, CONTENT_WIDTH, rowHeight, 'F');
+      }
+      y += rowHeight;
+    });
+
+    doc.setLineWidth(0.35);
+    doc.setDrawColor(60, 60, 60);
+
+    // Вертикали: внутри объединённых ячеек они не проводятся
+    y = top;
+    chunk.forEach(({ row, height: rowHeight }) => {
+      for (let i = 1; i < columnEdges.length - 1; i += 1) {
+        if (isCovered(row, i) || row.spans?.[i]) continue;
+        doc.line(columnEdges[i], y, columnEdges[i], y + rowHeight);
+      }
+      y += rowHeight;
+    });
+
+    // Горизонтали: верх, низ и границы между строками
+    doc.line(MARGIN.left, top, RIGHT_EDGE, top);
+    y = top;
+    chunk.forEach(({ height: rowHeight }) => {
+      y += rowHeight;
+      doc.line(MARGIN.left, y, RIGHT_EDGE, y);
+    });
+    doc.line(MARGIN.left, top, MARGIN.left, bottom);
+    doc.line(RIGHT_EDGE, top, RIGHT_EDGE, bottom);
+
+    // Утолщённая рамка фрагмента таблицы
+    doc.setLineWidth(0.8);
+    doc.rect(MARGIN.left, top, CONTENT_WIDTH, height, 'S');
+    doc.setLineWidth(0.35);
+
+    y = top;
+    chunk.forEach(({ row, height: rowHeight }) => {
+      writeCells(row, y, rowHeight);
+      y += rowHeight;
+    });
+  };
+
+  const place = (row: TableRow): PlacedRow => ({ row, height: measureRow(row) });
+
+  // Шапка таблицы повторяется на каждой странице, где есть строки позиций
+  const headerPlaced = place({
+    cells: TABLE_COLUMNS.map((column) => column.title),
+    fill: HEADER_FILL,
+    size: 6.6,
+    style: 'bold',
+    lineHeight: HEADER_LINE_HEIGHT,
+  });
+
+  // Обязательная итоговая по ТТН-1 строка: на всю ширину таблицы
+  const summaryPlaced = place({
+    cells: [
+      `Всего по накладной ТТН-1 Серия ${ttnSeries} № ${ttnNumber} числилось ` +
+        `${format(result.shipped, 0)} мест, фактически принято ${format(result.accepted, 0)} мест.`,
+    ],
+    spans: { 0: TABLE_COLUMNS.length },
+    fill: [247, 247, 247],
+    size: 8.2,
+    style: 'normal',
+    lineHeight: BODY_LINE_HEIGHT,
+    align: 'left',
+  });
+
+  // Итоговая жирная строка акта
+  const totalPlaced = place({
+    cells: [`ИТОГО: ${shortage} шт. на сумму ${amount} BYN`],
+    spans: { 0: TABLE_COLUMNS.length },
+    fill: [240, 240, 240],
+    size: 8.2,
+    style: 'bold',
+    lineHeight: BODY_LINE_HEIGHT,
+    align: 'left',
+  });
+
+  const tailHeight = summaryPlaced.height + totalPlaced.height;
+  // Место, которое на последней странице займут заключение и подписи сторон
+  const signatureReserve = 58;
+
+  let chunk: PlacedRow[] = [];
+  /** Верх текущего фрагмента таблицы */
+  let chunkTop = cursorY;
+  /** Текущая позиция отрисовки: низ последней помещённой строки */
+  let chunkBottom = cursorY;
+
+  /** Шапка таблицы повторяется на каждой странице, где есть строки позиций */
+  const startChunk = (top: number) => {
+    chunk = [headerPlaced];
+    chunkTop = top;
+    chunkBottom = top + headerPlaced.height;
+  };
+
+  const flush = () => {
+    if (!chunk.length) return;
+    drawTableChunk(chunk, chunkTop);
+    chunkTop = chunkBottom;
+    chunk = [];
+  };
+
+  startChunk(cursorY);
+
+  const bodyPlaced = bodyRows.map(place);
+  bodyPlaced.forEach((placed, index) => {
+    const isLast = index === bodyPlaced.length - 1;
+    // На последней строке резервируем итоги и подписи, на промежуточных — повтор шапки
+    const reserve = isLast ? tailHeight + signatureReserve : headerPlaced.height;
+    if (chunkBottom + placed.height + reserve > pageBottom()) {
+      flush();
+      doc.addPage();
+      startChunk(MARGIN.top);
+    }
+    chunk.push(placed);
+    chunkBottom += placed.height;
+  });
+
+  // Итоговые строки не должны отрываться от места, подписей и заключения
+  if (chunkBottom + tailHeight + signatureReserve > pageBottom()) {
+    flush();
+    doc.addPage();
+    startChunk(MARGIN.top);
+  }
+  chunk.push(summaryPlaced, totalPlaced);
+  chunkBottom += tailHeight;
+  flush();
+
+  cursorY = chunkBottom + 5;
 
   /* ── 4. ЗАКЛЮЧИТЕЛЬНАЯ ЧАСТЬ ───────────────────────────────────────── */
 
@@ -679,6 +828,13 @@ export function buildDiscrepancyActPdf(form: FormState, result: DiscrepancyResul
   );
 
   /* ── 5. ДВУСТОРОННИЕ ПОДПИСИ ───────────────────────────────────────── */
+
+  // Блок подписей переносится целиком, а не разрывается между страницами
+  const SIGNATURE_BLOCK_HEIGHT = 30;
+  if (cursorY + SIGNATURE_BLOCK_HEIGHT > pageBottom()) {
+    doc.addPage();
+    cursorY = MARGIN.top;
+  }
 
   const signatureTop = Math.max(cursorY + 10, pageBottom() - 32);
   const columnWidth = (CONTENT_WIDTH - 8) / 2;
@@ -736,10 +892,37 @@ export function buildDiscrepancyActPdf(form: FormState, result: DiscrepancyResul
 }
 
 export default function DiscrepancyAct({ feature }: { feature: Feature }) {
-  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+  const [form, setForm] = useState<FormState>(createDefaultForm);
 
   const updateField = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  /** Правка одного поля конкретной позиции спецификации */
+  const updateSpecificationRow = (id: string, field: keyof SpecificationValues, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      specification: prev.specification.map((row) =>
+        row.id === id ? { ...row, [field]: value } : row
+      ),
+    }));
+  };
+
+  /** Добавление пустой позиции в конец спецификации */
+  const addSpecificationRow = () => {
+    setForm((prev) => ({
+      ...prev,
+      specification: [...prev.specification, createSpecificationRow()],
+    }));
+  };
+
+  /** Удаление позиции; последняя строка не удаляется, чтобы остаться минимум одна */
+  const removeSpecificationRow = (id: string) => {
+    setForm((prev) =>
+      prev.specification.length <= 1
+        ? prev
+        : { ...prev, specification: prev.specification.filter((row) => row.id !== id) }
+    );
   };
 
   const isCustomLaw = form.violation === 'law_custom';
@@ -850,36 +1033,6 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
                 </div>
 
                 <div>
-                  <label
-                    className="block text-sm font-medium text-neutral-700 mb-1"
-                    htmlFor="act-product-name"
-                  >
-                    Наименование товара / грузового места
-                  </label>
-                  <input
-                    id="act-product-name"
-                    type="text"
-                    value={form.productName}
-                    onChange={(e) => updateField('productName', e.target.value)}
-                    className={inputClass}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1" htmlFor="act-unit">
-                    Ед. изм.
-                  </label>
-                  <input
-                    id="act-unit"
-                    type="text"
-                    value={form.unit}
-                    onChange={(e) => updateField('unit', e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
-
-                <div>
                   <label className="block text-sm font-medium text-neutral-700 mb-1" htmlFor="act-vehicle">
                     Транспортное средство (автомобиль, гос.номер)
                   </label>
@@ -983,79 +1136,19 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
                     </p>
                   </div>
                 )}
-
-                <div>
-                  <label
-                    className="block text-sm font-medium text-neutral-700 mb-1"
-                    htmlFor="act-shipped"
-                  >
-                    Отправлено по накладной, шт.
-                  </label>
-                  <input
-                    id="act-shipped"
-                    type="number"
-                    step="1"
-                    min="0"
-                    value={form.shipped}
-                    onChange={(e) => updateField('shipped', e.target.value)}
-                    className={inputClass}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label
-                    className="block text-sm font-medium text-neutral-700 mb-1"
-                    htmlFor="act-accepted"
-                  >
-                    Фактически принято складом, шт.
-                  </label>
-                  <input
-                    id="act-accepted"
-                    type="number"
-                    step="1"
-                    min="0"
-                    value={form.accepted}
-                    onChange={(e) => updateField('accepted', e.target.value)}
-                    className={inputClass}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label
-                    className="block text-sm font-medium text-neutral-700 mb-1"
-                    htmlFor="act-unit-price"
-                  >
-                    Стоимость 1 единицы товара (упущенная цена продажи), BYN
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      id="act-unit-price"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={form.unitPrice}
-                      onChange={(e) => updateField('unitPrice', e.target.value)}
-                      className={cn(inputClass, 'flex-1')}
-                      required
-                    />
-                    <span className="px-3 py-2 text-neutral-500 bg-neutral-50 rounded-lg text-sm">BYN</span>
-                  </div>
-                </div>
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setForm(DEFAULT_FORM)}
+                  onClick={() => setForm(createDefaultForm())}
                   className="flex items-center justify-center gap-2 px-4 py-3 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
                 >
                   <RotateCcw className="w-4 h-4" />
                   Сбросить
                 </button>
                 <span className="flex-1 self-center text-xs text-neutral-400">
-                  Сумма ущерба пересчитывается мгновенно при изменении полей
+                  Позиции товаров и сумма ущерба пересчитываются мгновенно
                 </span>
               </div>
             </div>
@@ -1065,16 +1158,19 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
           <div className="bg-white rounded-xl border border-neutral-200 p-6">
             <h3 className="text-lg font-semibold text-neutral-900 mb-1">Итоги по акту</h3>
             <p className="text-sm text-neutral-500 mb-4">
-              Недостача = Отправлено − Фактически принято; Сумма = Недостача × Цена 1 ед.
+              По каждой позиции: Недостача = Отправлено − Принято, Ущерб = Недостача × Цена. Итоги —
+              сумма по всем строкам ТТН-1
             </p>
 
             <div className="bg-[var(--primary)]/5 border border-[var(--primary)]/20 rounded-xl p-5 text-center">
-              <p className="text-sm text-neutral-600 mb-1">Количество недостачи</p>
+              <p className="text-sm text-neutral-600 mb-1">
+                Общее количество утерянного товара
+              </p>
               <p className="text-3xl font-bold text-neutral-900 mb-3">
                 {format(result.shortage, 0)} шт.
               </p>
               <p className="text-sm text-neutral-600">
-                Сумма ущерба:{' '}
+                Общая сумма ущерба по всей ТТН-1:{' '}
                 <span className="font-semibold text-neutral-900 text-lg">
                   {format(result.claimAmount)} BYN
                 </span>
@@ -1090,17 +1186,19 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
                 <p className="text-lg font-semibold text-neutral-900 mt-1">
                   {format(result.shipped, 0)} / {format(result.accepted, 0)}
                 </p>
-                <p className="text-xs text-neutral-400">недостача: {unitLabel(result.shortage)}</p>
+                <p className="text-xs text-neutral-400">
+                  по всей накладной: {unitLabel(result.shortage)}
+                </p>
               </div>
               <div className="bg-neutral-50 rounded-lg border border-neutral-200 p-3">
                 <div className="flex items-center gap-2">
-                  <Scale className="w-4 h-4 text-[var(--primary)]" aria-hidden="true" />
-                  <p className="text-xs text-neutral-500">Цена 1 единицы</p>
+                  <Package className="w-4 h-4 text-[var(--primary)]" aria-hidden="true" />
+                  <p className="text-xs text-neutral-500">Позиций в ТТН-1</p>
                 </div>
                 <p className="text-lg font-semibold text-neutral-900 mt-1">
-                  {format(result.unitPrice)} BYN
+                  {filledSpecificationRows(result.rows).length}
                 </p>
-                <p className="text-xs text-neutral-400">упущенная цена продажи</p>
+                <p className="text-xs text-neutral-400">строк в таблице акта</p>
               </div>
             </div>
 
@@ -1176,54 +1274,58 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
                     <thead>
                       <tr className="bg-neutral-200">
                         <th className="border border-neutral-400 px-1 py-1 font-semibold w-[4%]">№</th>
-                        <th className="border border-neutral-400 px-1 py-1 font-semibold text-left w-[22%]">
-                          Наименование товара / грузового места
+                        <th className="border border-neutral-400 px-1 py-1 font-semibold text-left w-[24%]">
+                          Наименование товара
                         </th>
-                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[7%]">
-                          Ед. изм.
+                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[6%]">
+                          Ед.
+                        </th>
+                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[12%]">
+                          Числилось (шт)
+                        </th>
+                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[12%]">
+                          Фактически (шт)
+                        </th>
+                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[12%]">
+                          Недостача (шт)
                         </th>
                         <th className="border border-neutral-400 px-1 py-1 font-semibold w-[13%]">
-                          Числилось по документам, шт.
+                          Цена (BYN)
                         </th>
-                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[13%]">
-                          Фактически принято, шт.
-                        </th>
-                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[13%]">
-                          Расхождение / Недостача, шт.
-                        </th>
-                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[13%]">
-                          Стоимость за ед., BYN
-                        </th>
-                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[15%]">
-                          Сумма ущерба, BYN
+                        <th className="border border-neutral-400 px-1 py-1 font-semibold w-[17%]">
+                          Сумма (BYN)
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td className="border border-neutral-400 px-1 py-1.5 text-center">1</td>
-                        <td className="border border-neutral-400 px-1 py-1.5">
-                          {form.productName || '—'}
-                        </td>
-                        <td className="border border-neutral-400 px-1 py-1.5 text-center">
-                          {form.unit || 'шт.'}
-                        </td>
-                        <td className="border border-neutral-400 px-1 py-1.5 text-center">
-                          {format(result.shipped, 0)}
-                        </td>
-                        <td className="border border-neutral-400 px-1 py-1.5 text-center">
-                          {format(result.accepted, 0)}
-                        </td>
-                        <td className="border border-neutral-400 px-1 py-1.5 text-center font-semibold">
-                          {format(result.shortage, 0)}
-                        </td>
-                        <td className="border border-neutral-400 px-1 py-1.5 text-right">
-                          {format(result.unitPrice)}
-                        </td>
-                        <td className="border border-neutral-400 px-1 py-1.5 text-right font-semibold">
-                          {format(result.claimAmount)}
-                        </td>
-                      </tr>
+                      {filledSpecificationRows(result.rows).map((row, index) => (
+                        <tr key={row.id}>
+                          <td className="border border-neutral-400 px-1 py-1.5 text-center">
+                            {index + 1}
+                          </td>
+                          <td className="border border-neutral-400 px-1 py-1.5">
+                            {row.productName || '—'}
+                          </td>
+                          <td className="border border-neutral-400 px-1 py-1.5 text-center">
+                            {row.unit || 'шт.'}
+                          </td>
+                          <td className="border border-neutral-400 px-1 py-1.5 text-center">
+                            {format(row.shippedQty, 0)}
+                          </td>
+                          <td className="border border-neutral-400 px-1 py-1.5 text-center">
+                            {format(row.acceptedQty, 0)}
+                          </td>
+                          <td className="border border-neutral-400 px-1 py-1.5 text-center font-semibold">
+                            {format(row.shortage, 0)}
+                          </td>
+                          <td className="border border-neutral-400 px-1 py-1.5 text-right">
+                            {format(row.unitPriceValue)}
+                          </td>
+                          <td className="border border-neutral-400 px-1 py-1.5 text-right font-semibold">
+                            {format(row.amount)}
+                          </td>
+                        </tr>
+                      ))}
                       <tr className="bg-neutral-100">
                         <td className="border border-neutral-400 px-1.5 py-1.5" colSpan={8}>
                           Всего по накладной ТТН-1 Серия {form.ttnSeries || '—'} №{' '}
@@ -1232,15 +1334,9 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
                         </td>
                       </tr>
                       <tr className="bg-neutral-200">
-                        <td
-                          className="border border-neutral-400 px-1 py-1.5 font-bold text-center"
-                          colSpan={6}
-                        >
-                          ИТОГО
-                        </td>
-                        <td className="border border-neutral-400 px-1 py-1.5 text-center">—</td>
-                        <td className="border border-neutral-400 px-1 py-1.5 text-right font-bold">
-                          {format(result.claimAmount)}
+                        <td className="border border-neutral-400 px-1.5 py-1.5 font-bold" colSpan={8}>
+                          ИТОГО: {format(result.shortage, 0)} шт. на сумму{' '}
+                          {format(result.claimAmount)} BYN
                         </td>
                       </tr>
                     </tbody>
@@ -1308,6 +1404,187 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Спецификация товаров — многострочная поставка по одной ТТН-1 */}
+        <div className="bg-white rounded-xl border border-neutral-200 p-6">
+          <div className="flex items-start justify-between gap-4 mb-1">
+            <h3 className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+              <Package className="w-5 h-5 text-[#7b1fa2]" aria-hidden="true" />
+              Спецификация товаров
+            </h3>
+            <span className="shrink-0 text-xs text-neutral-500 bg-neutral-100 rounded-full px-3 py-1">
+              {form.specification.length}{' '}
+              {plural(form.specification.length, 'позиция', 'позиции', 'позиций')}
+            </span>
+          </div>
+          <p className="text-sm text-neutral-500 mb-4">
+            Каждая позиция попадает отдельной строкой в таблицу акта. Недостача и ущерб по позиции
+            считаются сразу, а итоги блока справа суммируют все строки ТТН-1.
+          </p>
+
+          <div className="space-y-3">
+            {/* Подписи граф спецификации — скрыты на узких экранах */}
+            <div className="hidden lg:grid grid-cols-12 gap-2 px-1 text-xs font-medium text-neutral-500">
+              <span className="col-span-4">Наименование товара</span>
+              <span className="col-span-1">Ед.</span>
+              <span className="col-span-2">Отправлено, шт</span>
+              <span className="col-span-2">Принято фактически, шт</span>
+              <span className="col-span-2">Цена за 1 шт, BYN</span>
+              <span className="col-span-1" />
+            </div>
+
+            {form.specification.map((row, index) => {
+              const rowResult = result.rows[index];
+              const isOnlyRow = form.specification.length <= 1;
+
+              return (
+                <div
+                  key={row.id}
+                  className="rounded-lg border border-neutral-200 bg-neutral-50/40 p-3"
+                >
+                  <div className="grid grid-cols-2 lg:grid-cols-12 gap-2 items-end">
+                    <div className="col-span-2 lg:col-span-4">
+                      <label
+                        className="block text-xs font-medium text-neutral-600 mb-1 lg:hidden"
+                        htmlFor={`act-spec-name-${row.id}`}
+                      >
+                        Наименование товара
+                      </label>
+                      <input
+                        id={`act-spec-name-${row.id}`}
+                        type="text"
+                        value={row.productName}
+                        onChange={(e) => updateSpecificationRow(row.id, 'productName', e.target.value)}
+                        className={inputClass}
+                        placeholder="Например: Платье женское базовое"
+                      />
+                    </div>
+
+                    <div className="lg:col-span-1">
+                      <label
+                        className="block text-xs font-medium text-neutral-600 mb-1 lg:hidden"
+                        htmlFor={`act-spec-unit-${row.id}`}
+                      >
+                        Ед.
+                      </label>
+                      <input
+                        id={`act-spec-unit-${row.id}`}
+                        type="text"
+                        value={row.unit}
+                        onChange={(e) => updateSpecificationRow(row.id, 'unit', e.target.value)}
+                        className={inputClass}
+                        placeholder="шт."
+                      />
+                    </div>
+
+                    <div className="lg:col-span-2">
+                      <label
+                        className="block text-xs font-medium text-neutral-600 mb-1 lg:hidden"
+                        htmlFor={`act-spec-shipped-${row.id}`}
+                      >
+                        Отправлено, шт
+                      </label>
+                      <input
+                        id={`act-spec-shipped-${row.id}`}
+                        type="number"
+                        step="1"
+                        min="0"
+                        inputMode="numeric"
+                        value={row.shipped}
+                        onChange={(e) => updateSpecificationRow(row.id, 'shipped', e.target.value)}
+                        className={inputClass}
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div className="lg:col-span-2">
+                      <label
+                        className="block text-xs font-medium text-neutral-600 mb-1 lg:hidden"
+                        htmlFor={`act-spec-accepted-${row.id}`}
+                      >
+                        Принято фактически, шт
+                      </label>
+                      <input
+                        id={`act-spec-accepted-${row.id}`}
+                        type="number"
+                        step="1"
+                        min="0"
+                        inputMode="numeric"
+                        value={row.accepted}
+                        onChange={(e) => updateSpecificationRow(row.id, 'accepted', e.target.value)}
+                        className={inputClass}
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div className="lg:col-span-2">
+                      <label
+                        className="block text-xs font-medium text-neutral-600 mb-1 lg:hidden"
+                        htmlFor={`act-spec-price-${row.id}`}
+                      >
+                        Цена за 1 шт, BYN
+                      </label>
+                      <input
+                        id={`act-spec-price-${row.id}`}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        inputMode="decimal"
+                        value={row.unitPrice}
+                        onChange={(e) => updateSpecificationRow(row.id, 'unitPrice', e.target.value)}
+                        className={inputClass}
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    <div className="flex justify-end lg:col-span-1">
+                      <button
+                        type="button"
+                        onClick={() => removeSpecificationRow(row.id)}
+                        disabled={isOnlyRow}
+                        title={
+                          isOnlyRow
+                            ? 'В акте должна остаться хотя бы одна позиция'
+                            : 'Удалить позицию из акта'
+                        }
+                        aria-label={`Удалить позицию ${index + 1} из акта`}
+                        className={cn(
+                          'flex items-center justify-center w-full px-2 py-2 rounded-lg border transition-colors',
+                          isOnlyRow
+                            ? 'border-neutral-200 text-neutral-300 cursor-not-allowed'
+                            : 'border-neutral-300 text-neutral-500 hover:bg-red-50 hover:border-red-300 hover:text-red-600'
+                        )}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Живой расчёт по позиции */}
+                  <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-neutral-600">
+                    <span>
+                      Недостача:{' '}
+                      <b className="text-neutral-900">{format(rowResult.shortage, 0)} шт.</b>
+                    </span>
+                    <span>
+                      Ущерб по позиции:{' '}
+                      <b className="text-neutral-900">{format(rowResult.amount)} BYN</b>
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+
+            <button
+              type="button"
+              onClick={addSpecificationRow}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-white bg-[#7b1fa2] hover:bg-[#6a1b91] transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Добавить товар в акт
+            </button>
           </div>
         </div>
       </div>
