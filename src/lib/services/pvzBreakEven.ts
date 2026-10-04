@@ -2,7 +2,7 @@
  * Интерактивный калькулятор окупаемости пункта выдачи заказов (ПВЗ) Wildberries в РБ.
  *
  * Логика обратного расчёта точки безубыточности:
- *  1) FixedExpenses = аренда + ФОТ + коммуналка (+ штрафы «плохого месяца»).
+ *  1) FixedExpenses = аренда + ФОТ + коммуналка (+ отмеченные штрафы WB).
  *  2) Минимально необходимый доход ПВЗ для работы в ноль = FixedExpenses.
  *  3) Необходимый оборот выданных заказов (BYN) = FixedExpenses ÷ процент выплат зоны.
  *  4) Оборот в RUB = оборот в BYN × 28 (фиксированный технический курс WB).
@@ -20,6 +20,12 @@
  * Сравнение теории с реальностью:
  *  Ожидаемый поток клиентов (чел./день) сравнивается с минимумом клиентов в день,
  *  необходимым для выхода в ноль: покрывает или нет.
+ *
+ * Симулятор рисков и штрафов WB:
+ *  Пользователь отмечает нужные штрафы чекбоксами; сумма отмеченных удержаний
+ *  (включая ручной ввод кастомного штрафа) прибавляется к постоянным расходам.
+ *  При TotalFines > 0 плашка чистой прибыли желтеет (прибыль ещё в плюсе)
+ *  или краснеет (точка ушла в кассовый разрыв).
  *
  * Все денежные величины округляются до двух знаков (защита от багов float),
  * любые некорректные/пустые значения инпутов не ломают расчёт (`|| 0`).
@@ -159,41 +165,103 @@ export const PVZ_ZONES_BY_GROUP: PvzZoneGroup[] = PVZ_ZONE_GROUPS.map((group) =>
   options: PVZ_ZONES.filter((zone) => zone.group === group),
 })).filter((entry) => entry.options.length > 0);
 
-/** Скрытый массив штрафов симулятора «плохого месяца», BYN */
+/** Ультимативная база удержаний и штрафов Wildberries для ПВЗ, BYN */
 export interface PvzFine {
-  id: string;
-  /** Причина списания */
+  id: PvzFineId;
+  /** Название нарушения — текст чекбокса в панели стрес��-теста */
   reason: string;
-  /** Сумма штрафа/удержания, BYN */
+  /** Сумма штрафа/удержания, BYN. У кастомного штрафа сумма вводится вручную */
   amount: number;
+  /** true — сумму вводит пользователь в скрытом поле */
+  custom?: boolean;
 }
 
-export const PVZ_BAD_MONTH_FINES: PvzFine[] = [
+export type PvzFineId =
+  | 'fine_electronics'
+  | 'fine_rating'
+  | 'fine_acceptance'
+  | 'fine_videofixation'
+  | 'fine_complaint'
+  | 'fine_closed'
+  | 'fine_custom_check';
+
+/** id кастомного штрафа: включает скрытое поле ручного ввода суммы */
+export const PVZ_FINE_CUSTOM_ID = 'fine_custom_check';
+
+/** Дефолт ручного ввода для кастомного штрафа, BYN */
+export const PVZ_FINE_CUSTOM_DEFAULT = '0';
+
+export const PVZ_FINES: PvzFine[] = [
   {
     id: 'fine_electronics',
-    reason: 'Штраф за потерю/подмену дорогого товара сотрудником',
+    reason: 'Утеря или подмена дорогого товара/электроники сотрудником',
     amount: 1100,
   },
   {
     id: 'fine_rating',
-    reason: 'Падение рейтинга ПВЗ ниже 4.95 (депремирование)',
+    reason: 'Депремирование за падение рейтинга точки ниже 4.95 звезд',
     amount: 800,
   },
   {
     id: 'fine_acceptance',
-    reason: 'Штраф за просрочку разбора утренней приёмки (зависла поставка)',
+    reason: 'Просрочка разбора и сканирования утренней коробки/поставки',
     amount: 350,
   },
   {
     id: 'fine_videofixation',
-    reason: 'Штрафы по видеофиксации (не выдал пакет, грязь на ПВЗ, отсутствие формы)',
+    reason: 'Нарушение регламента видеофиксации (выдача без пакета, закрытая камера)',
     amount: 200,
+  },
+  {
+    id: 'fine_complaint',
+    reason: 'Жалоба клиента на некорректное/грубое поведение персонала',
+    amount: 100,
+  },
+  {
+    id: 'fine_closed',
+    reason: 'Закрытие ПВЗ в рабочие часы (опоздание менеджера на смену)',
+    amount: 150,
+  },
+  {
+    id: PVZ_FINE_CUSTOM_ID,
+    reason: 'Другой кастомный штраф от маркетплейса (ручной ввод суммы)',
+    amount: 0,
+    custom: true,
   },
 ];
 
+/** Отметки чекбоксов панели штрафов: id штрафа → выбран ли */
+export type PvzFineSelection = Record<string, boolean>;
+
+/** Ничего не выбрано — стресс-тест выключен */
+export const DEFAULT_FINE_SELECTION: PvzFineSelection = {};
+
+/** Сумма всех типовых (не кастомных) штрафов, BYN */
 export const PVZ_FINE_TOTAL: number = roundMoney(
-  PVZ_BAD_MONTH_FINES.reduce((sum, fine) => sum + fine.amount, 0)
+  PVZ_FINES.filter((fine) => !fine.custom).reduce((sum, fine) => sum + fine.amount, 0)
 );
+
+/**
+ * Суммирует штрафы по отмеченным чекбоксам и добавляет ручной ввод
+ * кастомного штрафа, если включён его чекбокс. Любые пустые/мусорные
+ * значения приводятся к 0 (защита от NaN).
+ */
+export function sumSelectedFines(
+  selection: PvzFineSelection,
+  customAmount: string | number
+): number {
+  const active = selection ?? {};
+  let total = 0;
+
+  for (const fine of PVZ_FINES) {
+    if (!active[fine.id]) continue;
+    total += fine.custom
+      ? Math.max(0, toNumber(customAmount) || 0)
+      : Math.max(0, toNumber(fine.amount) || 0);
+  }
+
+  return roundMoney(total);
+}
 
 /** Система налогообложения ИП в РБ: налог берётся только с ПОЛОЖИТЕЛЬНОЙ прибыли */
 export type PvzTaxId = 'income' | 'osn_vat';
@@ -390,11 +458,14 @@ export interface PvzBreakEvenResult {
   trafficPerDay: number;
   /** Прогноз трафика покрывает точку безубыточности */
   trafficCoversBreakEven: boolean;
+  /** Выбран хотя бы один штраф стрес��-теста */
+  hasFines: boolean;
 }
 
 export function calculatePvzBreakEven(
   form: PvzBreakEvenForm,
-  badMonth: boolean
+  /** Сумма штрафов по отмеченным чекбоксам панели, BYN (см. sumSelectedFines) */
+  finesTotalInput: number
 ): PvzBreakEvenResult {
   const isCustomZone = form.zone === PVZ_ZONE_CUSTOM_ID;
   const zone = getPvzZone(form.zone);
@@ -413,7 +484,8 @@ export function calculatePvzBreakEven(
   const trafficPerDay = Math.max(0, roundTo(toNumber(form.traffic) || 0, 0));
 
   const baseExpenses = roundMoney(rent + payroll.total + utilities);
-  const finesTotal = badMonth ? PVZ_FINE_TOTAL : 0;
+  // Отрицательные и мусорные суммы штрафов не уменьшают расходы точки
+  const finesTotal = Math.max(0, roundMoney(toNumber(finesTotalInput) || 0));
   const fixedExpenses = roundMoney(baseExpenses + finesTotal);
 
   // 2) Минимально необходимый доход ПВЗ для работы в ноль = постоянные расходы
@@ -478,6 +550,7 @@ export function calculatePvzBreakEven(
 
     trafficPerDay,
     trafficCoversBreakEven,
+    hasFines: finesTotal > 0,
   };
 }
 

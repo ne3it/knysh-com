@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Calculator as CalculatorIcon,
+  ChevronDown,
   Coins,
   Landmark,
   Percent,
@@ -19,9 +20,13 @@ import {
 import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
 import {
+  DEFAULT_FINE_SELECTION,
   DEFAULT_PVZ_FORM,
-  PVZ_BAD_MONTH_FINES,
   PVZ_CONFIG,
+  PVZ_FINES,
+  PVZ_FINE_CUSTOM_DEFAULT,
+  PVZ_FINE_CUSTOM_ID,
+  PVZ_FINE_TOTAL,
   PVZ_ZONES_BY_GROUP,
   PVZ_ZONE_CUSTOM_ID,
   PVZ_TAX_SYSTEMS,
@@ -29,10 +34,13 @@ import {
   createPvzEmployee,
   formatZonePercent,
   roundMoney,
+  sumSelectedFines,
   toNumber,
   type PvzBreakEvenForm,
   type PvzEmployee,
   type PvzEmployeeValues,
+  type PvzFineId,
+  type PvzFineSelection,
   type PvzTaxId,
 } from '@/lib/services/pvzBreakEven';
 import type { Feature } from '@/types/section';
@@ -165,7 +173,11 @@ function NumberField({ id, label, value, onChange, unit, hint, step = '0.01' }: 
 
 export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }) {
   const [form, setForm] = useState<PvzBreakEvenForm>(DEFAULT_PVZ_FORM);
-  const [badMonth, setBadMonth] = useState(false);
+  /** Отметки чекбоксов панели штрафов WB: id штрафа → выбран ли */
+  const [fineSelection, setFineSelection] = useState<PvzFineSelection>(DEFAULT_FINE_SELECTION);
+  /** Сумма кастомного штрафа, вводится вручную и учитывается только вместе с его чекбоксом */
+  const [customFine, setCustomFine] = useState(PVZ_FINE_CUSTOM_DEFAULT);
+  const [finesOpen, setFinesOpen] = useState(true);
 
   const updateText = (field: keyof PvzBreakEvenForm) => (value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -203,17 +215,77 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
     );
   };
 
-  const result = useMemo(() => calculatePvzBreakEven(form, badMonth), [form, badMonth]);
+  /** Отметка конкретного штрафа чекбоксом */
+  const toggleFine = (fineId: PvzFineId, checked: boolean) => {
+    setFineSelection((prev) => ({ ...prev, [fineId]: checked }));
+  };
+
+  /** Снятие всех штрафов стрес��-теста */
+  const resetFines = () => {
+    setFineSelection(DEFAULT_FINE_SELECTION);
+    setCustomFine(PVZ_FINE_CUSTOM_DEFAULT);
+  };
+
+  const result = useMemo(
+    () => calculatePvzBreakEven(form, sumSelectedFines(fineSelection, customFine)),
+    [form, fineSelection, customFine]
+  );
+
+  /** Сколько штрафов отмечено (для подписи в панели) */
+  const selectedFinesCount = PVZ_FINES.filter((fine) => fineSelection[fine.id]).length;
+  /** TotalFines — динамическая сумма отмеченных чекбоксов и ручного ввода, BYN */
+  const finesTotal = result.finesTotal;
 
   const isCustomZone = form.zone === PVZ_ZONE_CUSTOM_ID;
-  const isBadMonth = badMonth;
+  /** Отмечен хотя бы один штраф — расходы выросли, плашка прибыли перекрашивается */
+  const hasFines = result.hasFines;
   /** Расходы точки, распределённые на один выданный заказ */
   const expensesPerOrder =
     result.ordersPerMonth > 0 ? roundMoney(result.fixedExpenses / result.ordersPerMonth) : 0;
-  /** Чистый доход после налогов ушёл в минус (штрафы «плохого месяца» или слабый оборот) */
+  /** Чистый доход ушёл в минус (штрафы WB или слабый оборот) */
   const isNetLoss = result.netProfitByn < 0;
   /** При убытке налог не начисляется — иначе точка безубыточность поехала бы в минус */
   const taxApplied = result.preTaxProfitByn > 0 && result.taxAmountByn > 0;
+  /**
+   * Плашка чистой прибыли: КРАСНАЯ — точка в кассовом разрыве,
+   * ЖЁЛТАЯ — штрафы уменьшили прибыль, но плюс остался, обычная — штрафов нет.
+   */
+  const netProfitTone = isNetLoss
+    ? { box: 'bg-red-100 border-red-400', value: 'text-red-700' }
+    : hasFines
+      ? { box: 'bg-amber-100 border-amber-400', value: 'text-amber-800' }
+      : { box: 'bg-white border-emerald-300', value: 'text-emerald-700' };
+
+  /** Главный блок безубыточности повторяет ту же логику цветов */
+  const heroTone = isNetLoss
+    ? {
+        box: 'bg-red-50 border-red-500',
+        icon: 'bg-red-100',
+        iconText: 'text-red-600',
+        label: 'text-red-900',
+        value: 'text-red-700',
+        valueSoft: 'text-red-600',
+        accent: 'text-red-700',
+      }
+    : hasFines
+      ? {
+          box: 'bg-amber-50 border-amber-500',
+          icon: 'bg-amber-100',
+          iconText: 'text-amber-700',
+          label: 'text-amber-900',
+          value: 'text-amber-800',
+          valueSoft: 'text-amber-700',
+          accent: 'text-amber-800',
+        }
+      : {
+          box: 'bg-emerald-50 border-emerald-500',
+          icon: 'bg-white',
+          iconText: 'text-[var(--primary)]',
+          label: 'text-neutral-900',
+          value: 'text-emerald-700',
+          valueSoft: 'text-emerald-600',
+          accent: 'text-[var(--primary)]',
+        };
 
   return (
     <SectionContentWrapper feature={feature}>
@@ -525,73 +597,153 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                   </p>
                 </fieldset>
 
-                {/* ═══ Симулятор «плохого месяца» ═══ */}
-                <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                {/* ═══ Симулятор рисков и штрафов WB: аккордеон с чекбоксами ═══ */}
+                <div className="rounded-xl border border-red-200 bg-red-50/40 p-4">
                   <button
                     type="button"
-                    onClick={() => setBadMonth((prev) => !prev)}
-                    aria-pressed={isBadMonth}
-                    className={cn(
-                      'w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold border-2 transition-colors',
-                      isBadMonth
-                        ? 'bg-white text-red-700 border-red-500 hover:bg-red-50'
-                        : 'bg-red-600 text-white border-red-800 hover:bg-red-700'
-                    )}
+                    onClick={() => setFinesOpen((prev) => !prev)}
+                    aria-expanded={finesOpen}
+                    aria-controls="pvz-fines-panel"
+                    className="w-full flex items-center justify-between gap-2 text-left"
                   >
-                    <AlertTriangle className="w-5 h-5" aria-hidden="true" />
-                    {isBadMonth
-                      ? 'Выключить симулятор штрафов'
-                      : 'Смоделировать жесткие штрафы за месяц'}
+                    <span className="flex items-center gap-2 min-w-0">
+                      <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" aria-hidden="true" />
+                      <span className="font-semibold text-red-900">
+                        Симулятор рисков и штрафов WB (Стресс-тест модели)
+                      </span>
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        'w-5 h-5 flex-shrink-0 text-red-600 transition-transform',
+                        finesOpen && '-rotate-180'
+                      )}
+                      aria-hidden="true"
+                    />
                   </button>
 
-                  <label className="mt-3 flex items-start gap-2 text-sm text-neutral-700 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={isBadMonth}
-                      onChange={(e) => setBadMonth(e.target.checked)}
-                      onInput={(e) => setBadMonth(e.currentTarget.checked)}
-                      className="w-4 h-4 mt-0.5 rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
-                    />
-                    <span className="font-medium">
-                      Прибавить к постоянным расходам скрытые штрафы WB за месяц
-                    </span>
-                  </label>
+                  <p className="mt-1 text-[11px] leading-tight text-neutral-500">
+                    Отметьте штрафы, которые реально получили бы в этом месяце: их сумма прибавится к постоянным
+                    расходам. Все типовые штрафы разом = {formatMoney(PVZ_FINE_TOTAL)} BYN.
+                  </p>
 
-                  <ul className="mt-3 space-y-1">
-                    {PVZ_BAD_MONTH_FINES.map((fine) => (
-                      <li
-                        key={fine.id}
-                        className="flex items-start justify-between gap-3 text-[11px] leading-tight"
-                      >
-                        <span className="text-neutral-500 min-w-0">{fine.reason}</span>
-                        <span
-                          className={cn(
-                            'font-semibold tabular-nums shrink-0',
-                            isBadMonth ? 'text-red-600' : 'text-neutral-400'
-                          )}
-                        >
-                          +{formatMoney(fine.amount)} BYN
+                  <div
+                    id="pvz-fines-panel"
+                    className={cn(
+                      'grid transition-all duration-200 ease-out',
+                      finesOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 pointer-events-none'
+                    )}
+                    role="region"
+                    aria-label="Штрафы и удержания Wildberries"
+                  >
+                    <div className="overflow-hidden">
+                      <ul className="space-y-2 mt-3">
+                        {PVZ_FINES.map((fine) => {
+                          const isChecked = fineSelection[fine.id] ?? false;
+                          const isCustomChecked = isChecked && fine.custom === true;
+
+                          return (
+                            <li key={fine.id}>
+                              <label className="flex items-start gap-2 text-sm text-neutral-700 cursor-pointer select-none">
+                                <input
+                                  id={`pvz-fine-${fine.id}`}
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => toggleFine(fine.id, e.target.checked)}
+                                  onInput={(e) => toggleFine(fine.id, e.currentTarget.checked)}
+                                  className="w-4 h-4 mt-0.5 rounded border-neutral-300 text-red-600 focus:ring-red-500"
+                                />
+                                <span className="min-w-0">
+                                  <span className="font-medium">{fine.reason}</span>
+                                  <span className="block text-[11px] leading-tight text-neutral-400">
+                                    {fine.custom
+                                      ? 'сумма вводится вручную в поле ниже'
+                                      : `штраф: ${formatMoney(fine.amount)} BYN`}
+                                  </span>
+                                </span>
+                              </label>
+
+                              {/* Скрытое поле появляется ТОЛЬКО при отмеченном кастомном штрафе */}
+                              {fine.custom && (
+                                <div
+                                  className={cn(
+                                    'grid transition-all duration-200 ease-out',
+                                    isCustomChecked
+                                      ? 'grid-rows-[1fr] opacity-100'
+                                      : 'grid-rows-[0fr] opacity-0 pointer-events-none'
+                                  )}
+                                  role="region"
+                                  aria-label="Сумма кастомного штрафа"
+                                >
+                                  <div className="overflow-hidden">
+                                    <div className="pt-2 pl-6">
+                                      <label
+                                        className="block text-xs font-medium text-neutral-600 mb-1"
+                                        htmlFor="pvz-fine-custom-amount"
+                                      >
+                                        Сумма кастомного штрафа, BYN
+                                      </label>
+                                      <div className="flex gap-2">
+                                        <input
+                                          id="pvz-fine-custom-amount"
+                                          type="number"
+                                          step="1"
+                                          min="0"
+                                          inputMode="numeric"
+                                          value={customFine}
+                                          onChange={(e) => setCustomFine(e.target.value)}
+                                          onInput={(e) => setCustomFine(e.currentTarget.value)}
+                                          disabled={!isCustomChecked}
+                                          className={cn(inputClass, !isCustomChecked && 'opacity-50')}
+                                          placeholder="0"
+                                        />
+                                        <span className={badgeClass}>BYN</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+
+                      <div className="mt-3 pt-3 border-t border-red-200 flex flex-wrap items-center gap-x-4 gap-y-2">
+                        <span className="text-xs text-neutral-600">
+                          Выбрано: <b className="text-neutral-900">{selectedFinesCount}</b> · Итого штрафов:{' '}
+                          <b className={cn('tabular-nums', finesTotal > 0 ? 'text-red-600' : 'text-neutral-400')}>
+                            {formatMoney(finesTotal)} BYN
+                          </b>
                         </span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="mt-3 pt-3 border-t border-neutral-200 flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setForm(DEFAULT_PVZ_FORM);
-                        setBadMonth(false);
-                      }}
-                      className="flex items-center justify-center gap-2 px-4 py-3 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
-                    >
-                      <RotateCcw className="w-4 h-4" aria-hidden="true" />
-                      Сбросить
-                    </button>
-                    <span className="flex-1 self-center text-xs text-neutral-400">
-                      Расчёт обновляется автоматически при изменении полей
-                    </span>
+                        {selectedFinesCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={resetFines}
+                            className="ml-auto px-3 py-1.5 text-xs border border-neutral-300 text-neutral-700 rounded-lg hover:bg-white transition-colors"
+                          >
+                            Снять все штрафы
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm(DEFAULT_PVZ_FORM);
+                      setFineSelection(DEFAULT_FINE_SELECTION);
+                      setCustomFine(PVZ_FINE_CUSTOM_DEFAULT);
+                    }}
+                    className="flex items-center justify-center gap-2 px-4 py-3 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
+                  >
+                    <RotateCcw className="w-4 h-4" aria-hidden="true" />
+                    Сбросить
+                  </button>
+                  <span className="flex-1 self-center text-xs text-neutral-400">
+                    Расчёт обновляется автоматически при изменении полей
+                  </span>
                 </div>
               </div>
             </BlockCard>
@@ -599,40 +751,38 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
 
           {/* ══════════════ ПРАВАЯ КОЛОНКА: РЕЗУЛЬТАТЫ ══════════════ */}
           <div className="space-y-6">
-            {/* Главный блок окупаемости: красный при активном «плохом месяце» */}
+            {/* Главный блок окупаемости: красный в разрыве, жёлтый при штрафах, зелёный без штрафов */}
             <section
               className={cn(
                 'rounded-xl border-2 p-6 sm:p-8 text-center shadow-sm transition-colors',
-                isBadMonth ? 'bg-red-50 border-red-500' : 'bg-emerald-50 border-emerald-500'
+                heroTone.box
               )}
               aria-live="polite"
             >
               <div
                 className={cn(
                   'mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full',
-                  isBadMonth ? 'bg-red-100' : 'bg-white'
+                  heroTone.icon
                 )}
               >
-                {isBadMonth ? (
-                  <AlertTriangle className="w-6 h-6 text-red-600" aria-hidden="true" />
+                {hasFines ? (
+                  <AlertTriangle
+                    className={cn('w-6 h-6', heroTone.iconText)}
+                    aria-hidden="true"
+                  />
                 ) : (
                   <TrendingUp className="w-6 h-6 text-[var(--primary)]" aria-hidden="true" />
                 )}
               </div>
 
-              <p
-                className={cn(
-                  'text-sm sm:text-base font-medium',
-                  isBadMonth ? 'text-red-700' : 'text-neutral-600'
-                )}
-              >
+              <p className={cn('text-sm sm:text-base font-medium', heroTone.label)}>
                 Минимальный оборот ПВЗ для выхода в ноль
               </p>
 
               <p
                 className={cn(
                   'mt-2 text-4xl sm:text-5xl font-extrabold tabular-nums tracking-tight',
-                  isBadMonth ? 'text-red-700' : 'text-emerald-700'
+                  heroTone.value
                 )}
               >
                 {formatMoney(result.requiredTurnoverByn)} BYN
@@ -641,23 +791,15 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
               <p
                 className={cn(
                   'mt-2 text-lg sm:text-2xl font-bold tabular-nums',
-                  isBadMonth ? 'text-red-600' : 'text-emerald-600'
+                  heroTone.valueSoft
                 )}
               >
                 (~{formatMoney(result.requiredTurnoverRub)} RUB) в месяц
               </p>
 
-              <p
-                className={cn(
-                  'mt-4 text-base sm:text-lg font-bold leading-snug',
-                  isBadMonth ? 'text-red-900' : 'text-neutral-900'
-                )}
-              >
+              <p className={cn('mt-4 text-base sm:text-lg font-bold leading-snug', heroTone.label)}>
                 Чтобы просто окупать аренду и зарплаты, ваш ПВЗ должен ежедневно выдавать заказы минимум{' '}
-                <span className={isBadMonth ? 'text-red-700' : 'text-[var(--primary)]'}>
-                  {result.clientsPerDay}
-                </span>{' '}
-                клиентам.
+                <span className={heroTone.accent}>{result.clientsPerDay}</span> клиентам.
               </p>
 
               {/* ═══ Сравнение теории с реальностью: ожидаемый трафик vs точка безубыточности ═══ */}
@@ -686,12 +828,8 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
               {/* ═══ Чистый доход селлера после налогов РБ ═══ */}
               <div
                 className={cn(
-                  'mt-5 rounded-xl border p-4',
-                  isNetLoss
-                    ? 'bg-red-100 border-red-400'
-                    : isBadMonth
-                      ? 'bg-red-50 border-red-300'
-                      : 'bg-white border-emerald-300'
+                  'mt-5 rounded-xl border p-4 transition-colors',
+                  netProfitTone.box
                 )}
               >
                 <p className="text-xs sm:text-sm font-medium text-neutral-600">
@@ -700,7 +838,7 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                 <p
                   className={cn(
                     'mt-1 text-2xl sm:text-3xl font-extrabold tabular-nums tracking-tight',
-                    isNetLoss ? 'text-red-700' : 'text-emerald-700'
+                    netProfitTone.value
                   )}
                 >
                   {formatMoney(result.netProfitByn)} BYN в месяц
@@ -711,9 +849,24 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                     ? `налог ${formatMoney(result.taxAmountByn)} BYN удержан с прибыли`
                     : 'налог 0 BYN: точка в минусе, налог не начисляется'}
                 </p>
+
+                {/* ═══ Динамический лог удержаний: появляется при любом выбранном штрафе ═══ */}
+                {hasFines && (
+                  <p
+                    className={cn(
+                      'mt-3 rounded-lg border p-3 text-sm font-bold leading-snug',
+                      isNetLoss
+                        ? 'border-red-400 bg-red-100 text-red-800'
+                        : 'border-amber-400 bg-amber-100 text-amber-900'
+                    )}
+                  >
+                    Внимание! Из вашего валового дохода удержано {formatMoney(finesTotal)} BYN за нарушения
+                    регламентов WB. Чистая прибыль снизилась до {formatMoney(result.netProfitByn)} BYN.
+                  </p>
+                )}
               </div>
 
-              <p className={cn('mt-2 text-xs sm:text-sm', isBadMonth ? 'text-red-700' : 'text-neutral-500')}>
+              <p className={cn('mt-2 text-xs sm:text-sm', hasFines ? 'text-red-700' : 'text-neutral-500')}>
                 {result.ordersPerMonth > 0 ? (
                   <>
                     Это {format(result.ordersPerMonth, 2)} заказов в месяц при среднем чеке{' '}
@@ -727,14 +880,6 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                   </>
                 )}
               </p>
-
-              {isBadMonth && (
-                <p className="mt-4 rounded-lg border border-red-300 bg-red-100 p-3 text-sm font-bold text-red-800 leading-snug">
-                  ВНИМАНИЕ: Из-за штрафов и падения рейтинга ваша точка уходит в кассовый разрыв на{' '}
-                  {formatMoney(result.finesTotal)} BYN! Чистый остаток прибыли превратился в минус. Тщательно
-                  контролируйте работу персонала и камеры видеонаблюдения.
-                </p>
-              )}
             </section>
 
             {/* Разбор постоянных расходов */}
@@ -742,7 +887,7 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
               title="Разбор постоянных расходов точки"
               subtitle={`Зона: ${result.zoneLabel}`}
               icon={Coins}
-              tone={isBadMonth ? 'danger' : 'default'}
+              tone={hasFines ? 'danger' : 'default'}
             >
               <MetricRow
                 label="Аренда помещения"
@@ -778,14 +923,14 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                 sub={`введено ${formatMoney(toNumber(form.utilities) || 0)} BYN`}
               />
               <MetricRow
-                label="Штрафы «плохого месяца»"
+                label="Штрафы и удержания WB"
                 value={`${formatMoney(result.finesTotal)} BYN`}
                 sub={
-                  isBadMonth
-                    ? `${PVZ_BAD_MONTH_FINES.length} штрафа прибавлено к постоянным расходам`
-                    : 'симулятор выключен'
+                  hasFines
+                    ? `${selectedFinesCount} штраф(ов) из панели стрес��-теста прибавлено к постоянным расходам`
+                    : 'ничего не отмечено — стресс-тест выключен'
                 }
-                tone={isBadMonth ? 'danger' : 'muted'}
+                tone={hasFines ? 'danger' : 'muted'}
               />
               <MetricRow
                 label="Итого постоянные расходы (FixedExpenses)"
@@ -849,7 +994,7 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                     {formatMoney(result.payroll.total)} (оклады {formatMoney(result.payroll.salariesTotal)} + ФСЗН{' '}
                     {formatMoney(result.payroll.fsznTotal)} + Белгосстрах{' '}
                     {formatMoney(result.payroll.bgsTotal)}) + коммуналка {formatMoney(result.utilities)}
-                    {isBadMonth ? ` + штрафы ${formatMoney(result.finesTotal)}` : ''} ={' '}
+                    {hasFines ? ` + штрафы ${formatMoney(result.finesTotal)}` : ''} ={' '}
                     <strong className="text-neutral-900">{formatMoney(result.fixedExpenses)} BYN</strong>
                   </span>
                 </li>
@@ -906,17 +1051,17 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
               <div
                 className={cn(
                   'rounded-xl border p-4',
-                  isBadMonth ? 'bg-red-50 border-red-300' : 'bg-white border-neutral-200'
+                  hasFines ? 'bg-red-50 border-red-300' : 'bg-white border-neutral-200'
                 )}
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={cn('p-2 rounded-lg', isBadMonth ? 'bg-red-100' : 'bg-[var(--primary)]/10')}
+                    className={cn('p-2 rounded-lg', hasFines ? 'bg-red-100' : 'bg-[var(--primary)]/10')}
                   >
                     <Users
                       className={cn(
                         'w-5 h-5',
-                        isBadMonth ? 'text-red-600' : 'text-[var(--primary)]'
+                        hasFines ? 'text-red-600' : 'text-[var(--primary)]'
                       )}
                       aria-hidden="true"
                     />
@@ -926,7 +1071,7 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                     <p
                       className={cn(
                         'text-lg font-semibold tabular-nums',
-                        isBadMonth ? 'text-red-700' : 'text-neutral-900'
+                        hasFines ? 'text-red-700' : 'text-neutral-900'
                       )}
                     >
                       {result.clientsPerDay}
@@ -941,17 +1086,17 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
               <div
                 className={cn(
                   'rounded-xl border p-4',
-                  isBadMonth ? 'bg-red-50 border-red-300' : 'bg-white border-neutral-200'
+                  hasFines ? 'bg-red-50 border-red-300' : 'bg-white border-neutral-200'
                 )}
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={cn('p-2 rounded-lg', isBadMonth ? 'bg-red-100' : 'bg-[var(--primary)]/10')}
+                    className={cn('p-2 rounded-lg', hasFines ? 'bg-red-100' : 'bg-[var(--primary)]/10')}
                   >
                     <Wallet
                       className={cn(
                         'w-5 h-5',
-                        isBadMonth ? 'text-red-600' : 'text-[var(--primary)]'
+                        hasFines ? 'text-red-600' : 'text-[var(--primary)]'
                       )}
                       aria-hidden="true"
                     />
@@ -993,13 +1138,13 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
               <div
                 className={cn(
                   'rounded-xl border p-4',
-                  isBadMonth ? 'bg-red-50 border-red-300' : 'bg-white border-neutral-200'
+                  hasFines ? 'bg-red-50 border-red-300' : 'bg-white border-neutral-200'
                 )}
               >
                 <div className="flex items-center gap-3">
-                  <div className={cn('p-2 rounded-lg', isBadMonth ? 'bg-red-100' : 'bg-emerald-100')}>
+                  <div className={cn('p-2 rounded-lg', hasFines ? 'bg-red-100' : 'bg-emerald-100')}>
                     <CalculatorIcon
-                      className={cn('w-5 h-5', isBadMonth ? 'text-red-600' : 'text-emerald-600')}
+                      className={cn('w-5 h-5', hasFines ? 'text-red-600' : 'text-emerald-600')}
                       aria-hidden="true"
                     />
                   </div>
@@ -1008,13 +1153,13 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                     <p
                       className={cn(
                         'text-lg font-semibold tabular-nums',
-                        isBadMonth ? 'text-red-700' : 'text-neutral-900'
+                        hasFines ? 'text-red-700' : 'text-neutral-900'
                       )}
                     >
                       {formatMoney(expensesPerOrder)} BYN
                     </p>
                     <p className="text-xs text-neutral-400">
-                      {isBadMonth ? 'с учётом штрафов за месяц' : 'аренда + ФОТ + коммуналка на заказ'}
+                      {hasFines ? 'с учётом штрафов за месяц' : 'аренда + ФОТ + коммуналка на заказ'}
                     </p>
                   </div>
                 </div>
