@@ -14,6 +14,10 @@
  *  Налог НЕ прибавляется к расходам, а удерживается только с положительной прибыли:
  *  при убытке точки налог автоматически равен 0, точка безубыточности не ломается.
  *
+ * Валовый доход считается от трафика, отдельного ввода оборота в форме нет:
+ *  ExpectedMonthlyVolume_BYN = Ожидаемый_поток_клиентов × Средний_чек × 30 дней
+ *  Валовый_Доход = ExpectedMonthlyVolume_BYN × Процент_выплат_зоны
+ *
  * ФОТ собирается из динамического списка сотрудников (как спецификация ТТН-1):
  *  ФОТ = Σ окладов + 34% (взносы в ФСЗН) + 0.6% (Белгосстрах).
  *
@@ -42,8 +46,6 @@ export const PVZ_CONFIG = {
   DEFAULT_UTILITIES: 400,
   /** Средний чек одного заказа WB по умолчанию, BYN */
   DEFAULT_AVG_CHECK: 55,
-  /** Фактический оборот точки по умолчанию, BYN (чуть выше точки безубыточности) */
-  DEFAULT_TURNOVER: 120000,
   /** Ожидаемый поток клиентов по умолчанию, чел./день */
   DEFAULT_TRAFFIC: 80,
   /** Взносы в ФСЗН за работника в РБ, % от оклада */
@@ -309,9 +311,7 @@ export interface PvzBreakEvenForm {
   utilities: string;
   /** Средний чек одного заказа на WB, BYN */
   avg_check: string;
-  /** Фактический оборот выданных заказов в месяц, BYN — база для чистого дохода */
-  turnover: string;
-  /** Ожидаемый поток клиентов, чел./день — сравнение с точкой безубыточности */
+  /** Ожидаемый поток клиентов, чел./день — база расчёта дохода и сравнения с безубыточностью */
   traffic: string;
   /** Система налогообложения ИП в РБ */
   tax_system: PvzTaxId;
@@ -357,6 +357,33 @@ export function createPvzEmployee(values: PvzEmployeeValues = EMPTY_EMPLOYEE): P
   return { id: nextEmployeeId(), ...values };
 }
 
+/** Правка одного поля конкретной строки персонала */
+export function updateEmployeeRow(
+  employees: PvzEmployee[],
+  id: string,
+  field: keyof PvzEmployeeValues,
+  value: string
+): PvzEmployee[] {
+  return (Array.isArray(employees) ? employees : []).map((employee) =>
+    employee.id === id ? { ...employee, [field]: value } : employee
+  );
+}
+
+/** Добавление новой видимой строки сотрудника в конец списка */
+export function addEmployeeRow(employees: PvzEmployee[]): PvzEmployee[] {
+  return [...(Array.isArray(employees) ? employees : []), createPvzEmployee()];
+}
+
+/**
+ * Удаление строки персонала. Последний сотрудник не удаляется:
+ * хотя бы одна строка с полями остаётся видимой в форме всегда.
+ */
+export function removeEmployeeRow(employees: PvzEmployee[], id: string): PvzEmployee[] {
+  const list = Array.isArray(employees) ? employees : [];
+  if (list.length <= 1) return list;
+  return list.filter((employee) => employee.id !== id);
+}
+
 export const DEFAULT_PVZ_FORM: PvzBreakEvenForm = {
   zone: DEFAULT_ZONE_ID,
   custom_rate: '3.5',
@@ -364,7 +391,6 @@ export const DEFAULT_PVZ_FORM: PvzBreakEvenForm = {
   employees: [createPvzEmployee(DEFAULT_EMPLOYEE)],
   utilities: String(PVZ_CONFIG.DEFAULT_UTILITIES),
   avg_check: String(PVZ_CONFIG.DEFAULT_AVG_CHECK),
-  turnover: String(PVZ_CONFIG.DEFAULT_TURNOVER),
   traffic: String(PVZ_CONFIG.DEFAULT_TRAFFIC),
   tax_system: DEFAULT_PVZ_TAX_ID,
 };
@@ -439,9 +465,13 @@ export interface PvzBreakEvenResult {
   /** Курс, по которому считается оборот в RUB */
   rubPerByn: number;
 
-  /** Фактический оборот точки, BYN */
-  turnoverByn: number;
-  /** Валовый доход ПВЗ при фактическом обороте, BYN */
+  /** Ожидаемый оборот при введённом трафике, BYN */
+  expectedTurnoverByn: number;
+  /** Ожидаемый оборот в RUB по фиксированному курсу WB */
+  expectedTurnoverRub: number;
+  /** Ожидаемое количество заказов в месяц = трафик × дней в месяце */
+  expectedOrdersPerMonth: number;
+  /** Валовый доход ПВЗ при ожидаемом обороте, BYN */
   grossRevenueByn: number;
   /** Прибыль до налогов: валовый доход − постоянные расходы, BYN */
   preTaxProfitByn: number;
@@ -480,7 +510,6 @@ export function calculatePvzBreakEven(
   const payroll = calculatePayroll(form.employees);
   const utilities = roundMoney(toNumber(form.utilities) || 0);
   const avgCheck = roundMoney(toNumber(form.avg_check) || 0);
-  const turnoverByn = roundMoney(toNumber(form.turnover) || 0);
   const trafficPerDay = Math.max(0, roundTo(toNumber(form.traffic) || 0, 0));
 
   const baseExpenses = roundMoney(rent + payroll.total + utilities);
@@ -508,8 +537,18 @@ export function calculatePvzBreakEven(
   // Налоговый модуль РБ: налог НЕ прибавляется к расходам, а удерживается с прибыли.
   // Чистая_Прибыль = (Валовый_Доход_ПВЗ − Постоянные_Расходы) × (1 − Ставка_Налога / 100).
   // При убытке налог автоматически 0 — точка безубыточности не ломается.
+  //
+  // Валовый доход строится только от трафика и среднего чека:
+  //   ExpectedMonthlyVolume_BYN = трафик (чел/день) × средний чек × 30 дней
+  //   Валовый_Доход = ExpectedMonthlyVolume_BYN × процент выплат зоны
+  const expectedOrdersPerMonth = roundTo(trafficPerDay * PVZ_CONFIG.DAYS_IN_MONTH, 2);
+  const expectedTurnoverByn = roundMoney(
+    trafficPerDay * avgCheck * PVZ_CONFIG.DAYS_IN_MONTH
+  );
+  const expectedTurnoverRub = roundMoney(expectedTurnoverByn * PVZ_CONFIG.RUB_PER_BYN);
+
   const taxRatePercent = Math.min(100, Math.max(0, toNumber(taxSystem.rate) || 0));
-  const grossRevenueByn = roundMoney(turnoverByn * safeRate);
+  const grossRevenueByn = roundMoney(expectedTurnoverByn * safeRate);
   const preTaxProfitByn = roundMoney(grossRevenueByn - fixedExpenses);
   const taxAmountByn =
     preTaxProfitByn > 0 ? roundMoney(preTaxProfitByn * (taxRatePercent / 100)) : 0;
@@ -540,7 +579,9 @@ export function calculatePvzBreakEven(
     payoutByn,
     rubPerByn: PVZ_CONFIG.RUB_PER_BYN,
 
-    turnoverByn,
+    expectedTurnoverByn,
+    expectedTurnoverRub,
+    expectedOrdersPerMonth,
     grossRevenueByn,
     preTaxProfitByn,
     taxAmountByn,

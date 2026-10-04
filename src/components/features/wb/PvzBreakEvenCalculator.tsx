@@ -30,12 +30,15 @@ import {
   PVZ_ZONES_BY_GROUP,
   PVZ_ZONE_CUSTOM_ID,
   PVZ_TAX_SYSTEMS,
+  addEmployeeRow,
   calculatePvzBreakEven,
   createPvzEmployee,
   formatZonePercent,
+  removeEmployeeRow,
   roundMoney,
   sumSelectedFines,
   toNumber,
+  updateEmployeeRow,
   type PvzBreakEvenForm,
   type PvzEmployee,
   type PvzEmployeeValues,
@@ -195,24 +198,18 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
   const updateEmployee = (id: string, field: keyof PvzEmployeeValues, value: string) => {
     setForm((prev) => ({
       ...prev,
-      employees: prev.employees.map((employee) =>
-        employee.id === id ? { ...employee, [field]: value } : employee
-      ),
+      employees: updateEmployeeRow(prev.employees, id, field, value),
     }));
   };
 
   /** Добавление новой строки сотрудника в конец списка */
   const addEmployee = () => {
-    setForm((prev) => ({ ...prev, employees: [...prev.employees, createPvzEmployee()] }));
+    setForm((prev) => ({ ...prev, employees: addEmployeeRow(prev.employees) }));
   };
 
   /** Удаление строки; последний сотрудник не удаляется, чтобы остаться минимум один */
   const removeEmployee = (id: string) => {
-    setForm((prev) =>
-      prev.employees.length <= 1
-        ? prev
-        : { ...prev, employees: prev.employees.filter((employee) => employee.id !== id) }
-    );
+    setForm((prev) => ({ ...prev, employees: removeEmployeeRow(prev.employees, id) }));
   };
 
   /** Отметка конкретного штрафа чекбоксом */
@@ -409,17 +406,6 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                     step="1"
                     hint={`для безубыточности нужно минимум ${result.clientsPerDay} чел/день`}
                   />
-                  <div className="md:col-span-2">
-                    <NumberField
-                      id="pvz-turnover"
-                      label="Фактический оборот выданных заказов в месяц, BYN"
-                      value={form.turnover}
-                      onChange={updateText('turnover')}
-                      unit="BYN"
-                      step="100"
-                      hint={`База для чистого дохода: ${formatZonePercent(result.rate)} от этого оборота = ${formatMoney(result.grossRevenueByn)} BYN валового дохода ПВЗ`}
-                    />
-                  </div>
                 </div>
 
                 {/* ═══ Динамический блок персонала (по аналогии со спецификацией ТТН-1) ═══ */}
@@ -803,9 +789,29 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
               </p>
 
               {/* ═══ Сравнение теории с реальностью: ожидаемый трафик vs точка безубыточности ═══ */}
+              <div className="mt-4 rounded-lg border border-neutral-300 bg-white p-3">
+                <p className="text-xs sm:text-sm font-medium text-neutral-600">
+                  Прогнозируемый оборот точки при вашем трафике
+                </p>
+                <p
+                  className={cn(
+                    'mt-1 text-xl sm:text-2xl font-extrabold tabular-nums tracking-tight',
+                    result.trafficCoversBreakEven ? 'text-emerald-700' : 'text-amber-800'
+                  )}
+                >
+                  {formatMoney(result.expectedTurnoverByn)} BYN (~{formatMoney(result.expectedTurnoverRub)} RUB) в
+                  месяц
+                </p>
+                <p className="text-[11px] leading-tight text-neutral-500">
+                  {result.trafficPerDay} чел/день × средний чек{' '}
+                  {formatMoney(toNumber(form.avg_check) || 0)} BYN × {PVZ_CONFIG.DAYS_IN_MONTH} дней ={' '}
+                  {format(result.expectedOrdersPerMonth, 0)} заказов в месяц по вашему прогнозу
+                </p>
+              </div>
+
               <div
                 className={cn(
-                  'mt-4 rounded-lg border p-3 text-sm font-bold leading-snug',
+                  'mt-3 rounded-lg border p-3 text-sm font-bold leading-snug',
                   result.trafficCoversBreakEven
                     ? 'bg-emerald-50 border-emerald-400 text-emerald-800'
                     : 'bg-red-100 border-red-400 text-red-800'
@@ -951,9 +957,14 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                   <p className="text-sm font-semibold text-neutral-900">{result.taxLabel}</p>
                 </div>
                 <MetricRow
-                  label="Валовый доход ПВЗ (фактический оборот)"
+                  label="Ожидаемый оборот при вашем трафике"
+                  value={`${formatMoney(result.expectedTurnoverByn)} BYN`}
+                  sub={`${result.trafficPerDay} чел/день × ${formatMoney(toNumber(form.avg_check) || 0)} BYN × ${PVZ_CONFIG.DAYS_IN_MONTH} дней`}
+                />
+                <MetricRow
+                  label="Валовый доход ПВЗ (ожидаемый оборот × ставка зоны)"
                   value={`${formatMoney(result.grossRevenueByn)} BYN`}
-                  sub={`${formatMoney(result.turnoverByn)} BYN × ${formatZonePercent(result.rate)}`}
+                  sub={`${formatMoney(result.expectedTurnoverByn)} BYN × ${formatZonePercent(result.rate)}`}
                 />
                 <MetricRow
                   label="Прибыль до налогов"
@@ -1008,14 +1019,14 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                 <li className="flex gap-2">
                   <span className="font-semibold text-neutral-900 tabular-nums">3.</span>
                   <span>
-                    Оборот выданных заказов = расходы ÷ выплату зоны ({formatZonePercent(result.rate)}) ={' '}
+                    Оборот безубыточности = расходы ÷ выплату зоны ({formatZonePercent(result.rate)}) ={' '}
                     <strong className="text-neutral-900">{formatMoney(result.requiredTurnoverByn)} BYN</strong>
                   </span>
                 </li>
                 <li className="flex gap-2">
                   <span className="font-semibold text-neutral-900 tabular-nums">4.</span>
                   <span>
-                    Оборот в RUB = {formatMoney(result.requiredTurnoverByn)} × {result.rubPerByn} ={' '}
+                    Оборот безубыточности в RUB = {formatMoney(result.requiredTurnoverByn)} × {result.rubPerByn} ={' '}
                     <strong className="text-neutral-900">{formatMoney(result.requiredTurnoverRub)} RUB</strong>
                   </span>
                 </li>
@@ -1124,7 +1135,7 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                     <Percent className="w-5 h-5 text-indigo-600" aria-hidden="true" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm text-neutral-500">Оборот в RUB по курсу WB</p>
+                    <p className="text-sm text-neutral-500">Оборот безубыточности в RUB по курсу WB</p>
                     <p className="text-lg font-semibold text-neutral-900 tabular-nums">
                       {formatMoney(result.requiredTurnoverRub)} RUB
                     </p>
