@@ -26,10 +26,43 @@ export interface Feature {
   enabled?: boolean;
 }
 
+/**
+ * Горизонтальная вкладка внутри бизнес-блока.
+ * Один таб может содержать несколько инструментов (например «Проверка и валидатор ТН ВЭД»
+ * объединяет проверку сертификации и подбор кода ТН ВЭД).
+ */
+export interface ToolTab {
+  /** Уникальный идентификатор таба внутри блока */
+  id: string;
+  /** Подпись на фиолетовой кнопке-вкладке */
+  label: string;
+  /** Инструменты, отрисованные внутри таба (монтируются один раз — значения полей не сбрасываются) */
+  features: Feature[];
+}
+
+/** Логический бизнес-блок — пункт бокового меню */
+export interface ToolBlock {
+  id: string;
+  label: string;
+  /** Имя SVG-иконки из ICON_MAP */
+  icon: string;
+  description?: string;
+  /** Вкладки с инструментами блока */
+  tabs: ToolTab[];
+  /**
+   * Блок выделен в меню (обучающий модуль): крупная кнопка с золотой рамкой,
+   * чтобы новичок сразу видел точку входа в симулятор.
+   */
+  highlight?: 'gold' | 'violet';
+  /** Блок рисуется отдельной крупной кнопкой, а не строкой списка */
+  featured?: boolean;
+}
+
 export interface FeatureGroup {
   id: string;
   label: string;
-  features: Feature[];
+  /** Блоки внутри группы меню */
+  blocks: ToolBlock[];
   collapsible?: boolean;
   defaultOpen?: boolean;
 }
@@ -45,8 +78,8 @@ export interface SectionConfig {
   color: string;
   /** Feature groups for this section */
   featureGroups: FeatureGroup[];
-  /** Default feature to show on entry */
-  defaultFeature?: string;
+  /** Default business block to show on entry */
+  defaultBlock?: string;
   /** Section description for SEO */
   description?: string;
 }
@@ -54,22 +87,25 @@ export interface SectionConfig {
 export interface SectionState {
   /** Current active section */
   currentSection: string | null;
-  /** Current active feature within section */
-  currentFeature: string | null;
+  /** Current active business block within the section */
+  currentBlock: string | null;
+  /** Активная вкладка для каждого блока: { [blockId]: tabId } */
+  activeTabs: Record<string, string>;
   /** Sidebar collapsed state */
   sidebarCollapsed: boolean;
   /** Feature groups collapsed state */
   collapsedGroups: Record<string, boolean>;
-  /** Recent features for quick access */
+  /** Недавно открытые бизнес-блоки (id блока) для быстрого доступа */
   recentFeatures: string[];
 }
 
 export interface SectionActions {
   setCurrentSection: (sectionId: string) => void;
-  setCurrentFeature: (featureId: string) => void;
+  setCurrentBlock: (blockId: string) => void;
+  setActiveTab: (blockId: string, tabId: string) => void;
   toggleSidebar: () => void;
   toggleGroup: (groupId: string) => void;
-  addRecentFeature: (featureId: string) => void;
+  addRecentFeature: (blockId: string) => void;
   reset: () => void;
 }
 

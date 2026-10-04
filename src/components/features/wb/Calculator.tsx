@@ -21,6 +21,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLinkedForm, MEGA_LINKS } from '@/lib/hooks/useLinkedForm';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
 import {
   BREAK_EVEN_ERROR_MESSAGE,
@@ -233,7 +234,14 @@ function categoryLabel(category: PriceControlCategory): string {
 }
 
 export default function Calculator({ feature }: { feature: Feature }) {
-  const [form, setForm] = useState<MegaUnitForm>(DEFAULT_MEGA_FORM);
+  // Часть полей вынесена в общие переменные блока «Планировщик старта»:
+  // переключение вкладок не сбрасывает экономику, а расчёт идёт сквозным по событию ввода.
+  const {
+    form,
+    updateField: updateLinkedField,
+    updateFields,
+    reset: resetForm,
+  } = useLinkedForm<MegaUnitForm>(DEFAULT_MEGA_FORM, MEGA_LINKS);
   const [rate, setRate] = useState<number>(MEGA_CONFIG.FALLBACK_RUB_TO_BYN);
   /** Ручной курс: пустая строка = использовать курс, полученный с НБРБ */
   const [rateDraft, setRateDraft] = useState('');
@@ -281,12 +289,10 @@ export default function Calculator({ feature }: { feature: Feature }) {
     setRateError(null);
   };
 
-  const updateField = <K extends keyof MegaUnitForm>(field: K, value: MegaUnitForm[K]) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
+  const updateField = updateLinkedField;
 
   const updateText = (field: keyof MegaUnitForm) => (value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value } as MegaUnitForm));
+    updateFields({ [field]: value } as unknown as Partial<MegaUnitForm>);
   };
 
   const result = useMemo(
@@ -479,15 +485,9 @@ export default function Calculator({ feature }: { feature: Feature }) {
                       onInput={(e) => updateText('cost_price')(e.currentTarget.value)}
                       className={inputClass}
                     />
-                    <select
-                      value={form.currency}
-                      aria-label="Валюта закупки"
-                      onChange={(e) => updateField('currency', e.target.value as MegaUnitForm['currency'])}
-                      className="px-3 py-2 border border-neutral-300 rounded-lg bg-neutral-50 text-neutral-900 focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-                    >
-                      <option value="BYN">BYN</option>
-                      <option value="RUB">RUB</option>
-                    </select>
+                    <span className="inline-flex items-center rounded-lg border border-neutral-300 bg-neutral-50 px-3 text-sm font-semibold text-neutral-700">
+                      BYN
+                    </span>
                   </div>
                 </div>
 
@@ -948,7 +948,7 @@ export default function Calculator({ feature }: { feature: Feature }) {
             <div className="flex flex-wrap gap-3 items-center">
               <button
                 type="button"
-                onClick={() => setForm(DEFAULT_MEGA_FORM)}
+                onClick={() => resetForm()}
                 className="flex items-center justify-center gap-2 px-4 py-3 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
               >
                 <RotateCcw className="w-4 h-4" aria-hidden="true" />
@@ -1092,7 +1092,7 @@ export default function Calculator({ feature }: { feature: Feature }) {
               <MetricRow
                 label="Закупка"
                 value={`${formatMoney(result.costByn)} BYN`}
-                sub={form.currency === 'RUB' ? 'введено в RUB, пересчитано по курсу' : 'введено в BYN'}
+                sub="введено в BYN, рублёвый эквивалент — по курсу НБРБ"
               />
               <MetricRow
                 label="Экосбор на 1 шт"

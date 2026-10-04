@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Download, FileCheck, FileText, RotateCcw, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
+import { useLinkedForm, TNVED_CHECK_LINKS } from '@/lib/hooks/useLinkedForm';
 import { jsPDF } from 'jspdf';
 import { ROBOTO_REGULAR_BASE64, ROBOTO_BOLD_BASE64 } from '@/lib/fonts';
 import type { Feature } from '@/types/section';
@@ -327,7 +328,7 @@ function registerPdfFont(doc: jsPDF) {
 }
 
 export default function TNVEDCheck({ feature }: { feature: Feature }) {
-  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+  const { form, setForm } = useLinkedForm<FormState>(DEFAULT_FORM, TNVED_CHECK_LINKS);
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 

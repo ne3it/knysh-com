@@ -3,10 +3,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getSectionConfig, getIconComponent, getFeature } from '@/config/features';
-import { useSectionStore, useSidebarCollapsed } from '@/lib/store/sectionStore';
+import { getSectionConfig, getIconComponent, getBlock } from '@/config/features';
+import { useSectionStore, useSidebarCollapsed, useCurrentBlock } from '@/lib/store/sectionStore';
 import { SectionSidebar } from './SectionSidebar';
-import { SectionContent } from './SectionContent';
+import { BlockWorkspace } from './BlockWorkspace';
+import { FeatureLoader } from './SectionContent';
+import { useToolDeepLink } from './useToolDeepLink';
 
 interface SectionLayoutProps {
   sectionId: string;
@@ -17,9 +19,13 @@ export function SectionLayout({ sectionId, children }: SectionLayoutProps) {
   const sidebarCollapsed = useSidebarCollapsed();
   const initializedRef = useRef(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Читаем подпиской: нужно перерисовать рабочую область при смене блока/таба
+  const currentBlock = useSectionStore((state) => state.currentBlock);
 
   const sectionConfig = getSectionConfig(sectionId);
-  const defaultFeature = sectionConfig?.defaultFeature ?? null;
+  const defaultBlockId = sectionConfig?.defaultBlock ?? null;
+  // /wb?tool=<id>: инструменты вне меню открываются напрямую (Планировщик старта, Калькулятор ПВЗ)
+  const standaloneFeatureId = useToolDeepLink(sectionId);
 
   // Initialize store once on mount — uses getState() to avoid creating re-render subscriptions
   useEffect(() => {
@@ -30,12 +36,12 @@ export function SectionLayout({ sectionId, children }: SectionLayoutProps) {
     if (store.currentSection !== sectionId) {
       store.setCurrentSection(sectionId);
     }
-    const currentFeatureIsValid =
-      !!store.currentFeature && !!getFeature(sectionId, store.currentFeature);
-    if (!currentFeatureIsValid && defaultFeature) {
-      store.setCurrentFeature(defaultFeature);
+    const currentBlockIsValid =
+      !!store.currentBlock && !!getBlock(sectionId, store.currentBlock);
+    if (!currentBlockIsValid && defaultBlockId) {
+      store.setCurrentBlock(defaultBlockId);
     }
-  }, []);
+  }, [sectionId, defaultBlockId]);
 
   // Close the mobile drawer on Escape and when returning to the desktop breakpoint
   useEffect(() => {
@@ -68,6 +74,7 @@ export function SectionLayout({ sectionId, children }: SectionLayoutProps) {
   }
 
   const SectionIcon = getIconComponent(sectionConfig.icon);
+  const store = useSectionStore.getState();
 
   return (
     <div className="relative flex min-h-screen w-full flex-col bg-white lg:flex-row">
@@ -132,8 +139,15 @@ export function SectionLayout({ sectionId, children }: SectionLayoutProps) {
         aria-label={sectionConfig.label}
       >
         <div className="flex-1 min-w-0 w-full p-4 sm:p-6 lg:p-8">
-          {/* Feature Content */}
-          <SectionContent sectionId={sectionId} />
+          {standaloneFeatureId ? (
+            <FeatureLoader sectionId={sectionId} featureId={standaloneFeatureId} />
+          ) : (
+            <BlockWorkspace
+              sectionId={sectionId}
+              blockId={currentBlock}
+              onTabChange={(blockId, tabId) => store.setActiveTab(blockId, tabId)}
+            />
+          )}
 
           {/* Custom children (for section-specific overlays, etc.) */}
           {children}
@@ -191,6 +205,8 @@ export function SectionLayoutWithHeader({
   header: React.ReactNode;
 }) {
   const sidebarCollapsed = useSidebarCollapsed();
+  const currentBlock = useCurrentBlock();
+  const store = useSectionStore.getState();
 
   return (
     <div className="relative flex min-h-screen w-full flex-col bg-white lg:flex-row">
@@ -205,7 +221,11 @@ export function SectionLayoutWithHeader({
           {header}
         </div>
         <div className="p-4 sm:p-6 lg:p-8">
-          <SectionContent sectionId={sectionId} />
+          <BlockWorkspace
+            sectionId={sectionId}
+            blockId={currentBlock}
+            onTabChange={(blockId, tabId) => store.setActiveTab(blockId, tabId)}
+          />
         </div>
       </main>
     </div>

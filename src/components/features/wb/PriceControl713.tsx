@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { AlertTriangle, ChevronDown, Scale } from 'lucide-react';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
+import { useLinkedForm, PRICE_CONTROL_LINKS } from '@/lib/hooks/useLinkedForm';
 import {
   PRICE_CONTROL_CATEGORIES,
   limitToPercent,
@@ -15,15 +16,17 @@ interface FormState {
   additional_expenses: string;
 }
 
+const DEFAULT_FORM: FormState = {
+  cost_price: '15',
+  additional_expenses: '3',
+};
+
 export default function PriceControl713({ feature }: { feature: Feature }) {
   const defaultCategory = PRICE_CONTROL_CATEGORIES[0];
   const [selectedCategory, setSelectedCategory] = useState<PriceControlCategory>(defaultCategory);
   const [searchValue, setSearchValue] = useState(defaultCategory.name);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<FormState>({
-    cost_price: '15',
-    additional_expenses: '3',
-  });
+  const { form, setForm } = useLinkedForm<FormState>(DEFAULT_FORM, PRICE_CONTROL_LINKS);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);

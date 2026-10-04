@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
+import { useLinkedForm, STOCKOUT_LINKS } from '@/lib/hooks/useLinkedForm';
 import type { Feature } from '@/types/section';
 
 const CHART_JS_URL = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
@@ -54,14 +55,19 @@ interface FormState {
 }
 
 export default function Stockout({ feature }: { feature: Feature }) {
-  const defaultForm: FormState = {
-    daily_sales: '10',
-    retail_price_byn: '45',
-    stockout_days: '7',
-    margin_percent: '30',
-  };
+  // Стабильный объект значений по умолчанию: useLinkedForm использует его
+  // в зависимостях мемоизации формы.
+  const defaultForm = useMemo<FormState>(
+    () => ({
+      daily_sales: '10',
+      retail_price_byn: '45',
+      stockout_days: '7',
+      margin_percent: '30',
+    }),
+    []
+  );
 
-  const [form, setForm] = useState<FormState>(defaultForm);
+  const { form, setForm } = useLinkedForm<FormState>(defaultForm, STOCKOUT_LINKS);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<ChartInstance | null>(null);
 

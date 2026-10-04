@@ -18,6 +18,7 @@ import {
 import { Line } from 'react-chartjs-2';
 import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
+import { useLinkedForm, PVZ_RETURN_LINKS } from '@/lib/hooks/useLinkedForm';
 import type { Feature } from '@/types/section';
 
 let chartJSRegistered = false;
@@ -336,7 +337,7 @@ function ProfitChart({ result }: { result: PvzResult }) {
 }
 
 export default function PvzReturnAnalyzer({ feature }: { feature: Feature }) {
-  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+  const { form, setForm } = useLinkedForm<FormState>(DEFAULT_FORM, PVZ_RETURN_LINKS);
 
   const updateField = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));

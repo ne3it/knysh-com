@@ -22,6 +22,10 @@ async function loadDefault(mod: { default?: FeatureComponent }): Promise<Feature
 }
 
 export const COMPONENT_REGISTRY: Record<string, FeatureComponent> = {
+  /* Обучающий симулятор «Быстрый Старт» — первым, он же главная кнопка сайдбара */
+  '@components/features/wb/StartupSimulator': dynamic(() =>
+    import('@/components/features/wb/StartupSimulator').then(loadDefault)
+  ),
    '@components/features/wb/Calculator': dynamic(() =>
     import('@/components/features/wb/Calculator').then(loadDefault)
   ),

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Loader2, AlertCircle, FileQuestion } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getFeature, getIconComponent } from '@/config/features';
-import { useCurrentFeature } from '@/lib/store/sectionStore';
+import { useCurrentBlock } from '@/lib/store/sectionStore';
 import { getFeatureComponent } from '@/lib/services/componentRegistry';
 import type { Feature } from '@/types/section';
 
@@ -152,9 +152,7 @@ export function SectionContentWrapper({ children, feature }: SectionContentWrapp
  * Orchestrates the feature loading and rendering
  */
 export function SectionContent({ sectionId }: { sectionId: string }) {
-  const currentFeature = useCurrentFeature();
-  return (
-    <FeatureLoader sectionId={sectionId} featureId={currentFeature} />
-  );
+  const currentBlock = useCurrentBlock();
+  return <FeatureLoader sectionId={sectionId} featureId={currentBlock} />;
 }
 

@@ -438,3 +438,162 @@ export const LegalScaleIcon = ({ className = '', style, ...props }: SVGProps<SVG
     <path d="M21.5 16.5c-2.6-.9-5.1-.9-7.5.4v5.4c2.4-1.3 4.9-1.3 7.5-.4v-5.4z" />
   </svg>
 );
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Иконки бизнес-блоков бокового меню (5 штук, уникальные для каждого блока).
+   Используют currentColor, чтобы наследовать фиолетовый цвет активного пункта.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Блок 1. Планировщик старта — ракета со стартовым следом */
+export const RocketLaunchIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M12 2.5c2.6 2.2 4 5.3 4 8.7 0 1.9-.5 3.7-1.4 5.3H9.4A12.6 12.6 0 0 1 8 11.2c0-3.4 1.4-6.5 4-8.7z" />
+    <circle cx="12" cy="9.5" r="1.6" />
+    <path d="M9.4 16.5H6.2c0-2 .5-3.7 1.4-5.3l1.8 1.4" />
+    <path d="M14.6 16.5h3.2c0-2-.5-3.7-1.4-5.3l-1.8 1.4" />
+    <path d="M10.5 19h3l-.6 2.2h-1.8z" />
+    <path d="M12 21.5v.5" />
+  </svg>
+);
+
+/** Блок 2. Маркировка и документы РБ — лист документа со штрихкодом */
+export const DocBarcodeIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M6 2.5h8l4 4V20a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 20V4a1.5 1.5 0 0 1 1-1.5z" />
+    <path d="M14 2.5v4h4" />
+    <path d="M8 11h8" />
+    <path d="M8 14h4" />
+    <path d="M8 17.5v2" />
+    <path d="M10.5 17.5v2" />
+    <path d="M13 17.5v2" />
+    <path d="M15.5 17.5v2" />
+    <path d="M18 17.5v2" />
+  </svg>
+);
+
+/** Блок 3. Налоги и контроль — весы на щите безопасности */
+export const ShieldScaleIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M12 2.5l7.5 3v6.2c0 4.6-3.1 8.6-7.5 9.8-4.4-1.2-7.5-5.2-7.5-9.8V5.5l7.5-3z" />
+    <path d="M12 7v7.5" />
+    <path d="M7.5 9.5h9" />
+    <path d="M7.5 9.5L5.5 14h4l-2-4.5z" />
+    <path d="M16.5 9.5L14.5 14h4l-2-4.5z" />
+    <path d="M9.8 17.5h4.4" />
+  </svg>
+);
+
+/** Блок 4. Аналитика ПВЗ и логистика — пункт выдачи заказов с посылкой */
+export const PvzPointIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M3 9.5L5 4.5h14l2 5" />
+    <path d="M3 9.5h18" />
+    <path d="M4.5 9.5v10h15v-10" />
+    <path d="M8 19.5v-5h8v5" />
+    <path d="M12 14.5v5" />
+    <path d="M9.5 6.2V4.8h5v1.4" />
+    <path d="M9.5 4.8h5l1 1.4h-7z" />
+  </svg>
+);
+
+/** Блок 5. SEO оптимизация — лупа со щёткой для чистки текста */
+export const SeoBrushIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    <circle cx="10.5" cy="10.5" r="6" />
+    <path d="M14.8 14.8l5 5" />
+    <path d="M7.5 9h6" />
+    <path d="M7.5 11.5h4" />
+    <path d="M4.5 20.5l3.2-1.1" />
+    <path d="M6.4 19.2l6.9-6.9 2.4 2.4-6.9 6.9-2.4-2.4z" />
+  </svg>
+);
+
+/**
+ * Модуль «Симулятор: Быстрый Старт» — академическая шапочка с ракетой.
+ * Двухцветная (фиолетовый #7b1fa2 + золото): блок намеренно выделен из общего ряда.
+ */
+export const SimulatorIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#7b1fa2"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Академическая шапочка */}
+    <path d="M2.5 9L12 4.5 21.5 9 12 13.5 2.5 9z" />
+    {/* Тулка */}
+    <path d="M6.5 10.8v4.4c0 1.4 2.5 2.6 5.5 2.6s5.5-1.2 5.5-2.6v-4.4" />
+    <path d="M20.5 9.5v5" stroke="#f59e0b" />
+    <circle cx="20.5" cy="15.4" r="0.9" fill="#f59e0b" stroke="none" />
+    {/* Ракета вместо звёздочки — символ запуска продаж */}
+    <path d="M11.4 3.2c1.1-1 2.6-1.1 3.7-.2.9.9 1 2.4.2 3.5l-2.6 3.6-3.4-3.4 2.1-3.5z" stroke="#f59e0b" />
+    <path d="M9.3 7.3l-1.6 1.6 2.8 2.8 1.6-1.6" stroke="#f59e0b" />
+  </svg>
+);

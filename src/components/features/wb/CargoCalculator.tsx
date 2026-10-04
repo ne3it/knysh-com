@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { RotateCcw, Package, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
+import { useLinkedForm, CARGO_LINKS } from '@/lib/hooks/useLinkedForm';
 import type { Feature } from '@/types/section';
 
 /** Одна стандартная европаллета вмещает до 1.5 м³ */
@@ -279,7 +280,7 @@ function PalletCanvas({
 }
 
 export default function CargoCalculator({ feature }: { feature: Feature }) {
-  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+  const { form, setForm } = useLinkedForm<FormState>(DEFAULT_FORM, CARGO_LINKS);
 
   const updateField = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));

@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { AlertTriangle, Leaf, Scale, Truck, Warehouse } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
+import { useLinkedForm, ECO_FEE_LINKS } from '@/lib/hooks/useLinkedForm';
 import type { Feature } from '@/types/section';
 
 export interface EcoMaterial {
@@ -125,7 +126,7 @@ const format = (value: number, digits = 2) =>
   value.toLocaleString('ru-RU', { maximumFractionDigits: digits });
 
 export default function EcoFeeCalculator({ feature }: { feature: Feature }) {
-  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+  const { form, setForm } = useLinkedForm<FormState>(DEFAULT_FORM, ECO_FEE_LINKS);
 
   const updateField = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));

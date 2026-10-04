@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Download, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
+import { useLinkedForm, LABELS_LINKS } from '@/lib/hooks/useLinkedForm';
 import type { Feature } from '@/types/section';
 import { ROBOTO_REGULAR_BASE64, ROBOTO_BOLD_BASE64 } from '@/lib/fonts';
 
@@ -23,16 +24,19 @@ interface ToastState {
 }
 
 export default function LabelsGenerator({ feature }: { feature: Feature }) {
-  const defaultForm: FormState = {
-    productName: 'Платье женское базовое',
-    sku: 'PL-0943-BL',
-    barcode: '2037281940123',
-    manufacturer: "ООО 'ТекстильПром', РФ, г. Иваново",
-    importer: "ООО 'МаркетИмпорт', РБ, г. Минск, ул. Короля, 2",
-    composition: '95% хлопок, 5% эластан. Бережная стирка при 30°C.',
-  };
+  const defaultForm = useMemo<FormState>(
+    () => ({
+      productName: 'Платье женское базовое',
+      sku: 'PL-0943-BL',
+      barcode: '2037281940123',
+      manufacturer: "ООО 'ТекстильПром', РФ, г. Иваново",
+      importer: "ООО 'МаркетИмпорт', РБ, г. Минск, ул. Короля, 2",
+      composition: '95% хлопок, 5% эластан. Бережная стирка при 30°C.',
+    }),
+    []
+  );
 
-  const [form, setForm] = useState<FormState>(defaultForm);
+  const { form, setForm } = useLinkedForm<FormState>(defaultForm, LABELS_LINKS);
   const [generating, setGenerating] = useState(false);
   const [toast, setToast] = useState<ToastState>({ show: false, type: 'success', message: '' });
   const jsPDFRef = useRef<any>(null);

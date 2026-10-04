@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { AlertTriangle, Percent, RotateCcw, ShieldCheck, Tag, TrendingDown, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
+import { useLinkedForm, SPLIT_LINKS } from '@/lib/hooks/useLinkedForm';
 import type { Feature } from '@/types/section';
 
 export interface SplitCategory {
@@ -216,7 +217,7 @@ const TONE_MESSAGES: Record<StatusTone, (profit: number) => string> = {
 };
 
 export default function SplitCalculator({ feature }: { feature: Feature }) {
-  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+  const { form, setForm } = useLinkedForm<FormState>(DEFAULT_FORM, SPLIT_LINKS);
 
   const updateField = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));

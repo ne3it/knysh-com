@@ -93,8 +93,8 @@ export const ECO_FEE_OPTIONS: EcoFeeOption[] = [
 ];
 
 export interface MegaUnitForm {
+  /** Себестоимость закупки 1 единицы, BYN (валюта расчёта фиксирована: BYN) */
   cost_price: string;
-  currency: 'BYN' | 'RUB';
   /** Розничная цена на WB, BYN. Пустая строка = использовать рекомендованную РРЦ */
   retail_price: string;
   /** Комиссия маркетплейса, % */
@@ -131,7 +131,6 @@ export interface MegaUnitForm {
 
 export const DEFAULT_MEGA_FORM: MegaUnitForm = {
   cost_price: '15',
-  currency: 'BYN',
   retail_price: '',
   commission_rate: String(MEGA_CONFIG.COMMISSION_RATE),
   tax_rate: String(MEGA_CONFIG.TAX_RATE),
@@ -312,12 +311,12 @@ export function resolveEcoRate(form: MegaUnitForm): number {
 
 export function calculateMegaUnitEconomics(form: MegaUnitForm, rate: number): MegaUnitResult {
   const safeRate = Number.isFinite(rate) && rate > 0 ? rate : MEGA_CONFIG.FALLBACK_RUB_TO_BYN;
-  const toByn = (rub: number) => (Number.isFinite(rub) ? rub : 0) * safeRate;
+  /** Курс нужен только для показа рублёвого эквивалента — сами расчёты ведём в BYN */
   const toRub = (byn: number) => (safeRate > 0 ? (Number.isFinite(byn) ? byn : 0) / safeRate : 0);
 
   // ─── Закупка ───────────────────────────────────────────────────────────────
-  const rawCost = Math.max(0, toNumber(form.cost_price));
-  const costByn = form.currency === 'RUB' ? toByn(rawCost) : rawCost;
+  // Валюта расчёта фиксирована: BYN. RUB-эквивалент показывается рядом для ориентира.
+  const costByn = Math.max(0, toNumber(form.cost_price));
 
   // ─── Блок 3: экосбор РБ ───────────────────────────────────────────────────
   const ecoWeightGrams = Math.max(0, toNumber(form.eco_weight));

@@ -237,6 +237,177 @@
     }
   }
 
+  /* ═══════════════════════════════════════════════════════════════════════
+     🎓 Симулятор: Быстрый Старт — анимации обучающего модуля
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* Свечение крупной кнопки симулятора в сайдбаре */
+  .simulator-glow {
+    animation: sim-glow 3s ease-in-out infinite;
+  }
+
+  /* Пульсация активного шага прогресса */
+  .sim-pulse {
+    animation: sim-pulse 1.8s ease-in-out infinite;
+  }
+
+  /* Подсказка под полем: всплывает по нажатию лампочки */
+  .sim-bubble {
+    opacity: 0.55;
+    transform: translateY(4px) scale(0.98);
+    transition: opacity 300ms ease, transform 300ms ease;
+  }
+
+  .sim-bubble-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    box-shadow: 0 8px 24px rgba(123, 31, 162, 0.28);
+  }
+
+  /* Фиолетовые стрелки, переключающие подсказки */
+  .sim-arrow-left,
+  .sim-arrow-right {
+    animation: sim-arrow 1.6s ease-in-out infinite;
+  }
+
+  .sim-arrow-left {
+    animation-delay: 200ms;
+  }
+
+  .sim-bulb {
+    animation: sim-bulb 2.4s ease-in-out infinite;
+  }
+
+  /* Карточка выбора роли: приглашение к нажатию */
+  .sim-role {
+    animation: sim-role-in 500ms ease-out both;
+  }
+
+  .sim-card {
+    animation: sim-card-in 600ms ease-out both;
+  }
+
+  /* Карточки расчёта появляются последовательно */
+  .sim-result-card {
+    animation: sim-card-in 550ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Кнопки расчёта: мягкий «вдох» для привлечения внимания */
+  .sim-cta {
+    animation: sim-cta 2.8s ease-in-out infinite;
+  }
+
+  .sim-next {
+    animation: sim-cta 2.2s ease-in-out infinite;
+  }
+
+  /* Блокирующая наценка: подсветка порога */
+  .sim-threshold {
+    animation: sim-threshold 2.6s ease-in-out infinite;
+  }
+
+  .sim-verdict {
+    box-shadow: 0 18px 48px rgba(123, 31, 162, 0.12);
+  }
+
+  @keyframes sim-glow {
+    0%, 100% {
+      box-shadow: 0 8px 20px rgba(123, 31, 162, 0.25);
+    }
+    50% {
+      box-shadow: 0 10px 30px rgba(245, 158, 11, 0.45);
+    }
+  }
+
+  @keyframes sim-pulse {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(123, 31, 162, 0.35);
+    }
+    50% {
+      transform: scale(1.08);
+      box-shadow: 0 0 0 8px rgba(123, 31, 162, 0);
+    }
+  }
+
+  @keyframes sim-arrow {
+    0%, 100% {
+      transform: translateX(0);
+      opacity: 0.6;
+    }
+    50% {
+      transform: translateX(3px);
+      opacity: 1;
+    }
+  }
+
+  @keyframes sim-bulb {
+    0%, 100% {
+      transform: rotate(-6deg);
+      opacity: 0.7;
+    }
+    50% {
+      transform: rotate(6deg);
+      opacity: 1;
+    }
+  }
+
+  @keyframes sim-role-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes sim-card-in {
+    from {
+      opacity: 0;
+      transform: translateY(18px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes sim-cta {
+    0%, 100% {
+      transform: translateY(0) scale(1);
+    }
+    50% {
+      transform: translateY(-2px) scale(1.02);
+    }
+  }
+
+  @keyframes sim-threshold {
+    0%, 100% {
+      border-color: rgba(123, 31, 162, 0.9);
+    }
+    50% {
+      border-color: rgba(245, 158, 11, 0.9);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .simulator-glow,
+    .sim-pulse,
+    .sim-arrow-left,
+    .sim-arrow-right,
+    .sim-bulb,
+    .sim-role,
+    .sim-card,
+    .sim-result-card,
+    .sim-cta,
+    .sim-next,
+    .sim-threshold {
+      animation: none;
+    }
+  }
+
   /* === Hover utilities === */
   .hover-lift {
     @apply transition-transform duration-300 hover:-translate-y-1;

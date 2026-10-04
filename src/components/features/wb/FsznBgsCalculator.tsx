@@ -1,8 +1,11 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Building2, ChevronDown, ChevronUp, Coins, Percent, RotateCcw, Shield } from 'lucide-react';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
+import { useLinkedForm } from '@/lib/hooks/useLinkedForm';
+import { SHARED_KEYS, useSharedEconomics } from '@/lib/store/sharedEconomicsStore';
+import { roundByn } from '@/lib/utils';
 import type { Feature } from '@/types/section';
 
 export const MONTHS_OF_YEAR = [
@@ -95,7 +98,7 @@ const inputClass =
 const badgeClass = 'shrink-0 px-3 py-2 text-neutral-500 bg-neutral-50 rounded-lg text-sm';
 
 export default function FsznBgsCalculator({ feature }: { feature: Feature }) {
-  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+  const { form, setForm } = useLinkedForm<FormState>(DEFAULT_FORM);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const updateField = (field: keyof FormState, value: string) => {
@@ -120,6 +123,13 @@ export default function FsznBgsCalculator({ feature }: { feature: Feature }) {
   };
 
   const result = useMemo(() => calculateFsznBgs(form), [form]);
+
+  // Итог взносов публикуем в общие переменные: мега-калькулятор делит его на партию,
+  // поэтому вкладки блока «Планировщик старта» считают от одних и тех же цифр.
+  const setSharedValue = useSharedEconomics((state) => state.setValue);
+  useEffect(() => {
+    setSharedValue(SHARED_KEYS.fsznQuarter, String(roundByn(result.fsznTotal + result.bgsTotal)));
+  }, [result, setSharedValue]);
 
   return (
     <SectionContentWrapper feature={feature}>

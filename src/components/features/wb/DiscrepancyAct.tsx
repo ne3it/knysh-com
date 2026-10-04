@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { AlertTriangle, Download, FileText, Package, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
+import { useLinkedForm, ACT_LINKS } from '@/lib/hooks/useLinkedForm';
 import { jsPDF } from 'jspdf';
 import { ROBOTO_REGULAR_BASE64, ROBOTO_BOLD_BASE64 } from '@/lib/fonts';
 import type { Feature } from '@/types/section';
@@ -892,7 +893,8 @@ export function buildDiscrepancyActPdf(form: FormState, result: DiscrepancyResul
 }
 
 export default function DiscrepancyAct({ feature }: { feature: Feature }) {
-  const [form, setForm] = useState<FormState>(createDefaultForm);
+  const defaultForm = useMemo<FormState>(() => createDefaultForm(), []);
+  const { form, setForm } = useLinkedForm<FormState>(defaultForm, ACT_LINKS);
 
   const updateField = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -1141,7 +1143,7 @@ export default function DiscrepancyAct({ feature }: { feature: Feature }) {
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setForm(createDefaultForm())}
+                  onClick={() => setForm(defaultForm)}
                   className="flex items-center justify-center gap-2 px-4 py-3 border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 transition-colors"
                 >
                   <RotateCcw className="w-4 h-4" />
