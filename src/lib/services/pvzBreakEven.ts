@@ -51,7 +51,13 @@ export const PVZ_CONFIG = {
   /** Взносы в ФСЗН за работника в РБ, % от оклада */
   FSZN_EMPLOYEE_RATE: 34,
   /** Взносы в Белгосстрах за работника в РБ, % от оклада */
-  BGS_EMPLOYEE_RATE: 0.6,
+  BGS_EMPLOYEE_RATE: 0.1,
+  /**
+   * Максимум сотрудников в расчёте ПВЗ.
+   * Ограничение по законодательству РБ: на одном пункте выдачи допускается
+   * не более 3 работников, поэтому четвёртая строка не добавляется.
+   */
+  MAX_EMPLOYEES: 3,
 } as const;
 
 /**
@@ -369,9 +375,20 @@ export function updateEmployeeRow(
   );
 }
 
-/** Добавление новой видимой строки сотрудника в конец списка */
+/**
+ * Добавление новой видимой строки сотрудника в конец списка.
+ * Ограничено PVZ_CONFIG.MAX_EMPLOYEES: лишние строки молча игнорируются,
+ * поэтому кнопка «＋ Добавить сотрудника» просто перестаёт работать.
+ */
 export function addEmployeeRow(employees: PvzEmployee[]): PvzEmployee[] {
-  return [...(Array.isArray(employees) ? employees : []), createPvzEmployee()];
+  const list = Array.isArray(employees) ? employees : [];
+  if (list.length >= PVZ_CONFIG.MAX_EMPLOYEES) return list;
+  return [...list, createPvzEmployee()];
+}
+
+/** Можно ли добавить ещё одну строку сотрудника (лимит 3 по закону РБ) */
+export function canAddEmployee(employees: PvzEmployee[]): boolean {
+  return (Array.isArray(employees) ? employees : []).length < PVZ_CONFIG.MAX_EMPLOYEES;
 }
 
 /**

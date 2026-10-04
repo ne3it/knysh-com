@@ -248,7 +248,7 @@ function RoleStep() {
   return (
     <section className="sim-card space-y-5 rounded-2xl border border-neutral-200 bg-white p-5 sm:p-6">
       <header className="text-center">
-        <span className="sim-eyebrow mb-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+        <span className="sim-eyebrow mb-2 inline-block rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-900">
           🎓 Обучающий модуль
         </span>
         <h2 className="text-xl font-bold text-neutral-900 sm:text-2xl">
@@ -418,7 +418,7 @@ function InputStep({ role }: { role: Role }) {
         <button
           type="button"
           onClick={calculate}
-          className="sim-cta inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-[#7b1fa2] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-[#7b1fa2]/25 transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7b1fa2] focus-visible:ring-offset-2"
+          className="sim-cta inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#9c27b0] to-[#4a148c] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-[#7b1fa2]/25 transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7b1fa2] focus-visible:ring-offset-2"
         >
           <Calculator className="h-5 w-5" aria-hidden="true" />
           Рассчитать экономику
@@ -491,7 +491,7 @@ function HintInput({
             aria-expanded={bubbleOpen}
             aria-controls={bubbleId}
             aria-label="Показать подсказку"
-            className="sim-bulb rounded-lg p-1 text-amber-600 transition-colors hover:bg-amber-100"
+            className="sim-bulb rounded-lg p-1 text-violet-700 transition-colors hover:bg-violet-100"
           >
             <Lightbulb className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -580,7 +580,7 @@ function ResultsStep({ results, revealed }: { results: Results; revealed: number
       <ResultCard
         step={2}
         visible={revealed >= 2}
-        accent="amber"
+        accent="deep"
         icon={<Truck className="h-5 w-5" aria-hidden="true" />}
         title="Логистика ПВЗ и 30% невыкупленного"
       >
@@ -726,7 +726,7 @@ function GoToPlannerButton() {
     <button
       type="button"
       onClick={() => router.push('/wb?tool=startup-planner')}
-      className="sim-cta inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-[#7b1fa2] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-[#7b1fa2]/25 transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7b1fa2] focus-visible:ring-offset-2"
+      className="sim-cta inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#9c27b0] to-[#4a148c] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-[#7b1fa2]/25 transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7b1fa2] focus-visible:ring-offset-2"
     >
       <Rocket className="h-5 w-5" aria-hidden="true" />
       Перейти к реальным расчетам
@@ -746,7 +746,7 @@ function ResultCard({
   visible: boolean;
   icon: React.ReactNode;
   title: string;
-  accent: 'violet' | 'amber' | 'rose';
+  accent: 'violet' | 'deep' | 'rose';
   children: React.ReactNode;
 }) {
   if (!visible) return null;
@@ -756,7 +756,7 @@ function ResultCard({
       className={cn(
         'sim-result-card animate-fade-in-up rounded-2xl border-2 bg-white p-5',
         accent === 'violet' && 'border-violet-200',
-        accent === 'amber' && 'border-amber-200',
+        accent === 'deep' && 'border-[#ddd6fe]',
         accent === 'rose' && 'border-rose-200'
       )}
       aria-live="polite"
@@ -766,7 +766,7 @@ function ResultCard({
           className={cn(
             'rounded-xl p-2 text-white',
             accent === 'violet' && 'bg-[#7b1fa2]',
-            accent === 'amber' && 'bg-amber-500',
+            accent === 'deep' && 'bg-[#5b21b6]',
             accent === 'rose' && 'bg-rose-500'
           )}
         >
@@ -803,7 +803,7 @@ function Metric({
           'tabular-nums font-bold',
           large ? 'mt-0.5 text-lg' : 'mt-0.5 text-sm',
           tone === 'ok' && 'text-emerald-700',
-          tone === 'warn' && 'text-amber-700',
+          tone === 'warn' && 'text-violet-800',
           tone === 'danger' && 'text-rose-700',
           tone === 'neutral' && 'text-neutral-900'
         )}
@@ -853,7 +853,7 @@ function useCelebration(active: boolean) {
     if (typeof window === 'undefined') return;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
 
-    const colors = ['#7b1fa2', '#f59e0b', '#10b981', '#ffffff'];
+    const colors = ['#7b1fa2', '#9c27b0', '#4a148c', '#ffffff'];
     const burst = (particleRatio: number, options: Record<string, unknown>) =>
       confetti({
         colors,

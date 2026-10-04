@@ -330,8 +330,8 @@ export default function EcoFeeCalculator({ feature }: { feature: Feature }) {
               Доля экосбора в себестоимости 1 товара: <span className="text-[var(--primary)]">{format(result.feePerUnitKopecks, 2)} коп.</span>
             </p>
           </div>
-          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-sm text-amber-900">
+          <div className="mt-4 p-3 bg-violet-50 border border-violet-300 rounded-lg">
+            <p className="text-sm text-violet-950">
               <strong>Внимание!</strong> Импортеры в РБ обязаны ежеквартально подавать декларацию и уплачивать сбор Оператору ВМР.
               Невключение этих затрат в юнит-экономику маркетплейса или неуплата сбора влечет крупные штрафы
               со стороны Министерства жилищно-коммунального хозяйства РБ.

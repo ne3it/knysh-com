@@ -155,10 +155,10 @@ const REPORT_TONES: Record<
     iconColor: 'text-emerald-600',
   },
   yellow: {
-    box: 'bg-amber-50 border-amber-200',
-    text: 'text-amber-900',
+    box: 'bg-violet-50 border-violet-300',
+    text: 'text-violet-950',
     icon: AlertTriangle,
-    iconColor: 'text-amber-600',
+    iconColor: 'text-violet-700',
   },
   red: {
     box: 'bg-red-50 border-red-200',
@@ -538,7 +538,7 @@ export default function MarkingCodeValidator({ feature }: { feature: Feature }) 
                     {result.issues.map((issue, idx) => (
                       <div
                         key={idx}
-                        className="text-xs text-amber-800 bg-amber-100/50 rounded p-1.5"
+                        className="text-xs text-violet-900 bg-violet-100/60 rounded p-1.5"
                       >
                         Код «
                         <span className="font-mono break-all">{issue.code}</span>» —{' '}
@@ -555,7 +555,7 @@ export default function MarkingCodeValidator({ feature }: { feature: Feature }) 
                     result.status === 'red'
                       ? 'text-red-700'
                       : result.status === 'yellow'
-                        ? 'text-amber-800'
+                        ? 'text-violet-900'
                         : 'text-neutral-600'
                   )}
                 >

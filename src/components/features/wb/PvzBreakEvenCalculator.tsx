@@ -31,6 +31,7 @@ import {
   PVZ_ZONE_CUSTOM_ID,
   PVZ_TAX_SYSTEMS,
   addEmployeeRow,
+  canAddEmployee,
   calculatePvzBreakEven,
   createPvzEmployee,
   formatZonePercent,
@@ -118,7 +119,7 @@ function MetricRow({ label, value, sub, tone = 'default' }: MetricRowProps) {
     default: 'text-neutral-900',
     muted: 'text-neutral-500',
     accent: 'text-[var(--primary)]',
-    warn: 'text-amber-700',
+    warn: 'text-violet-800',
     danger: 'text-red-600',
   };
 
@@ -202,8 +203,14 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
     }));
   };
 
-  /** Добавление новой строки сотрудника в конец списка */
+  /** Можно ли добавить строку: лимит 3 сотрудника по закону РБ */
+  const canAddEmployeeRow = canAddEmployee(form.employees);
+  /** Достигнут ли лимит штата ПВЗ */
+  const employeeLimitReached = form.employees.length >= PVZ_CONFIG.MAX_EMPLOYEES;
+
+  /** Добавление новой строки сотрудника в конец списка (не более 3) */
   const addEmployee = () => {
+    if (!canAddEmployeeRow) return;
     setForm((prev) => ({ ...prev, employees: addEmployeeRow(prev.employees) }));
   };
 
@@ -250,7 +257,7 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
   const netProfitTone = isNetLoss
     ? { box: 'bg-red-100 border-red-400', value: 'text-red-700' }
     : hasFines
-      ? { box: 'bg-amber-100 border-amber-400', value: 'text-amber-800' }
+      ? { box: 'bg-violet-100 border-violet-500', value: 'text-violet-900' }
       : { box: 'bg-white border-emerald-300', value: 'text-emerald-700' };
 
   /** Главный блок безубыточности повторяет ту же логику цветов */
@@ -266,13 +273,13 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
       }
     : hasFines
       ? {
-          box: 'bg-amber-50 border-amber-500',
-          icon: 'bg-amber-100',
-          iconText: 'text-amber-700',
-          label: 'text-amber-900',
-          value: 'text-amber-800',
-          valueSoft: 'text-amber-700',
-          accent: 'text-amber-800',
+          box: 'bg-violet-50 border-violet-600',
+          icon: 'bg-violet-100',
+          iconText: 'text-violet-800',
+          label: 'text-violet-950',
+          value: 'text-violet-900',
+          valueSoft: 'text-violet-800',
+          accent: 'text-violet-900',
         }
       : {
           box: 'bg-emerald-50 border-emerald-500',
@@ -419,7 +426,8 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                   <p className="text-[11px] leading-tight text-neutral-400 mb-3">
                     Оклады суммируются автоматически. Сверху начисляются взносы в ФСЗН{' '}
                     {PVZ_CONFIG.FSZN_EMPLOYEE_RATE}% и Белгосстрах {PVZ_CONFIG.BGS_EMPLOYEE_RATE}% — итоговый ФОТ
-                    идёт в постоянные расходы.
+                    идёт в постоянные расходы. До {PVZ_CONFIG.MAX_EMPLOYEES} сотрудников на ПВЗ включительно
+                    (всё в BYN).
                   </p>
 
                   {/* Подписи граф — скрыты на узких экранах */}
@@ -519,11 +527,27 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                   <button
                     type="button"
                     onClick={addEmployee}
-                    className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-white bg-[#7b1fa2] hover:bg-[#6a1b91] transition-colors"
+                    disabled={!canAddEmployeeRow}
+                    aria-describedby="pvz-employee-limit-hint"
+                    className={cn(
+                      'mt-3 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors',
+                      canAddEmployeeRow
+                        ? 'text-white bg-[#7b1fa2] hover:bg-[#6a1b91]'
+                        : 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                    )}
                   >
                     <Plus className="w-4 h-4" aria-hidden="true" />
-                    Добавить сотрудника
+                    ＋ Добавить сотрудника
                   </button>
+
+                  <p
+                    id="pvz-employee-limit-hint"
+                    className="mt-2 text-[11px] leading-tight text-neutral-500"
+                  >
+                    {employeeLimitReached
+                      ? `Достигнут лимит: не более ${PVZ_CONFIG.MAX_EMPLOYEES} сотрудников на одном ПВЗ (требование законодательства РБ). Удалите строку, чтобы добавить другую.`
+                      : `Можно добавить сотрудников: ${form.employees.length} из ${PVZ_CONFIG.MAX_EMPLOYEES}. Больше ${PVZ_CONFIG.MAX_EMPLOYEES} работников на одном ПВЗ законодательство РБ не допускает.`}
+                  </p>
 
                   {/* Живой расчёт ФОТ по всем строкам */}
                   <div className="mt-3 pt-3 border-t border-[var(--primary)]/20 flex flex-wrap gap-x-5 gap-y-1 text-xs text-neutral-600">
@@ -796,7 +820,7 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                 <p
                   className={cn(
                     'mt-1 text-xl sm:text-2xl font-extrabold tabular-nums tracking-tight',
-                    result.trafficCoversBreakEven ? 'text-emerald-700' : 'text-amber-800'
+                    result.trafficCoversBreakEven ? 'text-emerald-700' : 'text-violet-900'
                   )}
                 >
                   {formatMoney(result.expectedTurnoverByn)} BYN (~{formatMoney(result.expectedTurnoverRub)} RUB) в
@@ -863,7 +887,7 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                       'mt-3 rounded-lg border p-3 text-sm font-bold leading-snug',
                       isNetLoss
                         ? 'border-red-400 bg-red-100 text-red-800'
-                        : 'border-amber-400 bg-amber-100 text-amber-900'
+                        : 'border-violet-500 bg-violet-100 text-violet-950'
                     )}
                   >
                     Внимание! Из вашего валового дохода удержано {formatMoney(finesTotal)} BYN за нарушения

@@ -17,7 +17,7 @@ let chartJSRegistered = false;
 
 const CHART_COLORS: Record<string, string> = {
   purchase: '#3b82f6',
-  logistics: '#f59e0b',
+  logistics: '#8b5cf6',
   certification: '#8b5cf6',
   marking: '#10b981',
   misc: '#ef4444',

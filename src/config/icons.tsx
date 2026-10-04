@@ -590,10 +590,10 @@ export const SimulatorIcon = ({ className = '', style, ...props }: SVGProps<SVGS
     <path d="M2.5 9L12 4.5 21.5 9 12 13.5 2.5 9z" />
     {/* Тулка */}
     <path d="M6.5 10.8v4.4c0 1.4 2.5 2.6 5.5 2.6s5.5-1.2 5.5-2.6v-4.4" />
-    <path d="M20.5 9.5v5" stroke="#f59e0b" />
-    <circle cx="20.5" cy="15.4" r="0.9" fill="#f59e0b" stroke="none" />
+    <path d="M20.5 9.5v5" stroke="#7b1fa2" />
+    <circle cx="20.5" cy="15.4" r="0.9" fill="#7b1fa2" stroke="none" />
     {/* Ракета вместо звёздочки — символ запуска продаж */}
-    <path d="M11.4 3.2c1.1-1 2.6-1.1 3.7-.2.9.9 1 2.4.2 3.5l-2.6 3.6-3.4-3.4 2.1-3.5z" stroke="#f59e0b" />
-    <path d="M9.3 7.3l-1.6 1.6 2.8 2.8 1.6-1.6" stroke="#f59e0b" />
+    <path d="M11.4 3.2c1.1-1 2.6-1.1 3.7-.2.9.9 1 2.4.2 3.5l-2.6 3.6-3.4-3.4 2.1-3.5z" stroke="#7b1fa2" />
+    <path d="M9.3 7.3l-1.6 1.6 2.8 2.8 1.6-1.6" stroke="#7b1fa2" />
   </svg>
 );

@@ -261,49 +261,49 @@ function highlight(text: string, query: string): React.ReactNode {
   );
 }
 
-type Tone = 'neutral' | 'purple' | 'red' | 'amber' | 'green' | 'orange';
+type Tone = 'neutral' | 'purple' | 'red' | 'deep' | 'green' | 'orange';
 
 const TONE_CARD: Record<Tone, string> = {
   neutral: 'bg-neutral-50 border-neutral-200',
-  purple: 'bg-purple-50 border-purple-300',
+  purple: 'bg-violet-50 border-violet-400',
   red: 'bg-red-50 border-red-300',
-  amber: 'bg-amber-50 border-amber-300',
+  deep: 'bg-violet-50 border-violet-300',
   green: 'bg-green-50 border-green-300',
-  orange: 'bg-orange-50 border-orange-300',
+  orange: 'bg-violet-50 border-violet-300',
 };
 
 const TONE_ICON: Record<Tone, string> = {
   neutral: 'bg-neutral-100 text-neutral-600',
-  purple: 'bg-purple-100 text-purple-700',
+  purple: 'bg-violet-100 text-violet-800',
   red: 'bg-red-100 text-red-700',
-  amber: 'bg-amber-100 text-amber-700',
+  deep: 'bg-violet-100 text-violet-800',
   green: 'bg-green-100 text-green-700',
-  orange: 'bg-orange-100 text-orange-700',
+  orange: 'bg-violet-100 text-violet-800',
 };
 
 const TONE_LABEL: Record<Tone, string> = {
   neutral: 'text-neutral-500',
-  purple: 'text-purple-700',
+  purple: 'text-violet-800',
   red: 'text-red-700',
-  amber: 'text-amber-700',
+  deep: 'text-violet-800',
   green: 'text-green-700',
-  orange: 'text-orange-700',
+  orange: 'text-violet-800',
 };
 
 const TONE_VALUE: Record<Tone, string> = {
   neutral: 'text-neutral-900',
-  purple: 'text-purple-900',
+  purple: 'text-violet-950',
   red: 'text-red-900',
-  amber: 'text-amber-900',
+  deep: 'text-violet-950',
   green: 'text-green-900',
-  orange: 'text-orange-900',
+  orange: 'text-violet-950',
 };
 
 function certTone(trts: string): Tone {
   const value = trts.toLowerCase();
   if (value.includes('отказное')) return 'green';
   if (value.includes('сертификат')) return 'red';
-  if (value.includes('декларация')) return 'amber';
+  if (value.includes('декларация')) return 'deep';
   return 'neutral';
 }
 
@@ -477,7 +477,7 @@ export default function TNVEDValidator({ feature }: { feature: Feature }) {
                               className="w-full text-left px-3 py-2.5 hover:bg-[var(--primary)]/5"
                             >
                               <span className="flex items-center gap-2 text-sm font-medium text-neutral-900">
-                                <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" aria-hidden="true" />
+                                <AlertTriangle className="w-4 h-4 text-violet-1000 flex-shrink-0" aria-hidden="true" />
                                 {fallbackEntry.name}
                               </span>
                               <span className="block mt-0.5 pl-6 text-xs text-neutral-500">
@@ -628,7 +628,7 @@ export default function TNVEDValidator({ feature }: { feature: Feature }) {
                       )}
                     >
                       <span className="flex items-center gap-2 text-sm font-medium text-neutral-900">
-                        <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" aria-hidden="true" />
+                        <AlertTriangle className="w-4 h-4 text-violet-1000 flex-shrink-0" aria-hidden="true" />
                         Введённый код {fallbackEntry.tnved}
                       </span>
                       <span className="block mt-0.5 pl-6 text-xs text-neutral-500">
@@ -688,7 +688,7 @@ export default function TNVEDValidator({ feature }: { feature: Feature }) {
                   </p>
                 </div>
                 {selected.inferred && (
-                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300">
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-900 border border-violet-300">
                     <Info className="w-3.5 h-3.5" aria-hidden="true" />
                     Требуется проверка
                   </span>
@@ -719,7 +719,7 @@ export default function TNVEDValidator({ feature }: { feature: Feature }) {
                 hint={
                   certTone(selected.trts) === 'red'
                     ? 'Обязателен сертификат соответствия'
-                    : certTone(selected.trts) === 'amber'
+                    : certTone(selected.trts) === 'deep'
                       ? 'Достаточно декларации о соответствии'
                       : certTone(selected.trts) === 'green'
                         ? 'Сертификация не требуется'

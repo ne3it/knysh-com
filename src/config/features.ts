@@ -263,11 +263,11 @@ const wbPvzBreakEven: Feature = {
   label: 'Калькулятор ПВЗ WB',
   icon: 'PvzBreakEven',
   description:
-    'Окупаемость пункта выдачи заказов WB в РБ: тарифные зоны, обратный расчёт точки безубыточности и симулятор «плохого месяца» с штрафами',
+    'Окупаемость пункта выдачи заказов WB в РБ: сотрудники и взносы, тарифные зоны, поток клиентов и симулятор «плохого месяца» с штрафами',
   componentPath: '@/components/features/wb/PvzBreakEvenCalculator',
 };
 
-export const WB_STANDALONE_FEATURES: Feature[] = [wbStartupPlanner, wbPvzBreakEven];
+export const WB_STANDALONE_FEATURES: Feature[] = [wbStartupPlanner];
 
 const tab = (id: string, label: string, features: Feature[]): ToolTab => ({ id, label, features });
 
@@ -333,6 +333,7 @@ export const WB_BLOCKS: ToolBlock[] = [
     description: 'Покатушки самовывоза из ПВЗ и сборные грузы Минск → РФ',
     tabs: [
       tab('pvz-return', 'Анализ покатушек (ПВЗ)', [wbPvzReturn]),
+      tab('pvz', 'Калькулятор ПВЗ WB', [wbPvzBreakEven]),
       tab('cargo', 'Калькулятор доставки грузов (Карго)', [wbCargoCalculator]),
     ],
   },

@@ -702,7 +702,7 @@ export default function TNVEDCheck({ feature }: { feature: Feature }) {
                   : isClear
                     ? 'bg-emerald-50 border-emerald-200'
                     : product.status === 'declaration'
-                      ? 'bg-amber-50 border-amber-200'
+                      ? 'bg-violet-50 border-violet-300'
                       : 'bg-red-50 border-red-200'
               )}
             >
@@ -712,7 +712,7 @@ export default function TNVEDCheck({ feature }: { feature: Feature }) {
                 ) : isClear ? (
                   <CheckCircle2 className="w-5 h-5 text-emerald-600" aria-hidden="true" />
                 ) : product.status === 'declaration' ? (
-                  <FileCheck className="w-5 h-5 text-amber-600" aria-hidden="true" />
+                  <FileCheck className="w-5 h-5 text-violet-700" aria-hidden="true" />
                 ) : (
                   <AlertTriangle className="w-5 h-5 text-red-600" aria-hidden="true" />
                 )}
@@ -726,7 +726,7 @@ export default function TNVEDCheck({ feature }: { feature: Feature }) {
                         isClear
                           ? 'text-emerald-800'
                           : product.status === 'declaration'
-                            ? 'text-amber-800'
+                            ? 'text-violet-900'
                             : 'text-red-800'
                       )}
                     >
@@ -746,7 +746,7 @@ export default function TNVEDCheck({ feature }: { feature: Feature }) {
                         isClear
                           ? 'text-emerald-700'
                           : product.status === 'declaration'
-                            ? 'text-amber-700'
+                            ? 'text-violet-800'
                             : 'text-red-700'
                       )}
                     >

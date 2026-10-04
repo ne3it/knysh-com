@@ -198,8 +198,8 @@ const TONE_STYLES: Record<StatusTone, { box: string; text: string }> = {
     text: 'text-emerald-800',
   },
   zero: {
-    box: 'bg-amber-50 border-amber-500',
-    text: 'text-amber-900',
+    box: 'bg-violet-50 border-violet-600',
+    text: 'text-violet-950',
   },
   loss: {
     box: 'bg-red-600 border-red-800',
@@ -432,7 +432,7 @@ export default function SplitCalculator({ feature }: { feature: Feature }) {
                   {format(result.commission, 1)}% − СПП {format(toNumber(form.spp), 1)}%
                 </p>
                 {result.commissionApplied && (
-                  <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-amber-700">
+                  <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-violet-800">
                     <AlertTriangle className="w-3 h-3" aria-hidden="true" />
                     Применён минимум WB — {MIN_COMMISSION}%
                   </p>

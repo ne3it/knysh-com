@@ -377,8 +377,8 @@ export default function FsznBgsCalculator({ feature }: { feature: Feature }) {
             </div>
           </div>
 
-          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-xs leading-relaxed text-amber-900">
+          <div className="mt-4 p-3 bg-violet-50 border border-violet-300 rounded-lg">
+            <p className="text-xs leading-relaxed text-violet-950">
               <AlertTriangle className="w-3.5 h-3.5 inline mr-1 -mt-0.5" aria-hidden="true" />
               <strong>Внимание!</strong> Согласно законодательству РБ, индивидуальные предприниматели обязаны
               уплатить взносы в ФСЗН за отчетный год не позднее 1 марта следующего года. Сбор в Белгосстрах

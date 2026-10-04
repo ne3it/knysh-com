@@ -275,7 +275,7 @@ export function generateChecklist(form: PlannerForm, budget: BudgetBreakdown): C
 
 const BUDGET_LABELS: { key: keyof BudgetBreakdown; label: string; color: string }[] = [
   { key: 'purchase', label: 'Закупка', color: '#3b82f6' },
-  { key: 'logistics', label: 'Логистика', color: '#f59e0b' },
+  { key: 'logistics', label: 'Логистика', color: '#8b5cf6' },
   { key: 'certification', label: 'Сертификация', color: '#8b5cf6' },
   { key: 'marking', label: 'Маркировка', color: '#10b981' },
   { key: 'misc', label: 'Прочие', color: '#ef4444' },

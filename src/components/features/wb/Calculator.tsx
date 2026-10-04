@@ -117,7 +117,7 @@ const TONE_TEXT: Record<Tone, string> = {
   muted: 'text-neutral-500',
   accent: 'text-[var(--primary)]',
   success: 'text-emerald-700',
-  warn: 'text-amber-700',
+  warn: 'text-violet-800',
   danger: 'text-red-600',
 };
 
@@ -553,7 +553,7 @@ export default function Calculator({ feature }: { feature: Feature }) {
                             ? 'bg-emerald-100 text-emerald-800'
                             : activeRateSource === 'manual'
                               ? 'bg-blue-100 text-blue-800'
-                              : 'bg-amber-100 text-amber-800'
+                              : 'bg-violet-100 text-violet-900'
                         )}
                       >
                         {RATE_SOURCE_LABELS[activeRateSource]}
@@ -968,7 +968,7 @@ export default function Calculator({ feature }: { feature: Feature }) {
                 {rateError ? `ошибка: ${rateError}` : 'курс применяется ко всем блокам'}
               </span>
             </div>
-            {rateError && <p className="text-xs text-amber-700">{rateError}</p>}
+            {rateError && <p className="text-xs text-violet-800">{rateError}</p>}
           </div>
 
           {/* ══════════════ ПРАВАЯ КОЛОНКА: РЕЗУЛЬТАТЫ ══════════════ */}
@@ -1196,10 +1196,10 @@ export default function Calculator({ feature }: { feature: Feature }) {
             </BlockCard>
 
             {/* Юридические заметки */}
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+            <div className="rounded-xl border border-violet-300 bg-violet-50 p-5">
               <div className="flex items-start gap-3">
-                <ShieldCheck className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
-                <p className="text-xs leading-relaxed text-amber-900">
+                <ShieldCheck className="w-5 h-5 text-violet-700 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                <p className="text-xs leading-relaxed text-violet-950">
                   <strong>Учтены требования законодательства РБ:</strong> экосбор за упаковку (оплата
                   ежеквартально оператору ВМР), фиксированные взносы ФСЗН и Белгосстрах (уплата не позднее
                   25-го числа месяца после отчётного квартала), предельные надбавки Постановления № 713 КГК и

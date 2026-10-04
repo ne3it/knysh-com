@@ -218,7 +218,7 @@ function BlockItem({ block, isActive, sidebarCollapsed, onClick }: BlockItemProp
         <li>
           <button
             onClick={onClick}
-            className="simulator-glow flex w-full items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 p-2.5 text-white shadow-lg shadow-[#7b1fa2]/30 transition-transform hover:scale-105"
+            className="simulator-glow flex w-full items-center justify-center rounded-xl bg-gradient-to-br from-[#9c27b0] to-[#6a1b8f] p-2.5 text-white shadow-lg shadow-[#7b1fa2]/30 transition-transform hover:scale-105"
             aria-current={isActive ? 'page' : undefined}
             title={block.label}
           >
@@ -236,7 +236,7 @@ function BlockItem({ block, isActive, sidebarCollapsed, onClick }: BlockItemProp
           className={cn(
             'simulator-glow group relative w-full overflow-hidden rounded-xl px-4 py-4 text-left transition-transform',
             'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7b1fa2] focus-visible:ring-offset-2',
-            'bg-gradient-to-br from-amber-400 via-amber-500 to-[#7b1fa2] text-white',
+            'bg-gradient-to-br from-[#9c27b0] via-[#7b1fa2] to-[#4a148c] text-white',
             'shadow-lg shadow-[#7b1fa2]/25 hover:scale-[1.02] active:scale-[0.99]',
             isActive && 'ring-2 ring-[#7b1fa2] ring-offset-2'
           )}
@@ -254,11 +254,11 @@ function BlockItem({ block, isActive, sidebarCollapsed, onClick }: BlockItemProp
               <IconComponent className="w-6 h-6" aria-hidden="true" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[11px] font-semibold uppercase tracking-wider text-amber-50">
+              <span className="block text-[11px] font-semibold uppercase tracking-wider text-violet-100">
                 Обучающий модуль
               </span>
               <span className="block text-sm font-bold leading-snug">{block.label}</span>
-              <span className="mt-1 block text-xs leading-snug text-amber-50/90">
+              <span className="mt-1 block text-xs leading-snug text-violet-100/90">
                 4 шага · конфетти · разбор ошибок
               </span>
             </span>

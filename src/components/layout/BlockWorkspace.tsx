@@ -108,7 +108,7 @@ function BlockHeader({ block }: { block: ToolBlock }) {
       className={cn(
         'flex items-start gap-3 rounded-2xl border px-4 py-4 sm:px-5',
         block.highlight === 'gold'
-          ? 'border-amber-300 bg-gradient-to-r from-amber-50 via-white to-white'
+          ? 'border-violet-300 bg-gradient-to-r from-violet-50 via-white to-white'
           : 'border-neutral-200 bg-white'
       )}
     >
