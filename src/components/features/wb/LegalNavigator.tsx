@@ -4,8 +4,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpRight,
   Banknote,
+  FileCheck2,
+  Globe2,
   Landmark,
   Leaf,
+  Megaphone,
+  RotateCcw,
   Scale,
   Search,
   ShieldCheck,
@@ -18,7 +22,7 @@ import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
 import type { Feature } from '@/types/section';
 
-export type LawCategory = 'clothes' | 'cosmetics' | 'pvz' | 'shoes' | 'npd';
+export type LawCategory = 'clothes' | 'cosmetics' | 'pvz' | 'shoes' | 'npd' | 'general';
 
 export type LawTag = 'all' | LawCategory;
 
@@ -48,6 +52,7 @@ export const CATEGORY_LABELS: Record<LawCategory, string> = {
   pvz: 'ПВЗ',
   shoes: 'Обувь',
   npd: 'Самозанятость (НПД)',
+  general: 'Для всех',
 };
 
 export const LAW_TAGS: LawTagOption[] = [
@@ -57,6 +62,7 @@ export const LAW_TAGS: LawTagOption[] = [
   { id: 'pvz', label: 'Я открываю ПВЗ' },
   { id: 'shoes', label: 'Я продаю обувь' },
   { id: 'npd', label: 'Я самозанятый (НПД)' },
+  { id: 'general', label: 'Общие законы для всех' },
 ];
 
 export const LAW_CARDS: LawCardData[] = [
@@ -129,6 +135,50 @@ export const LAW_CARDS: LawCardData[] = [
       url: 'https://nalog.gov.by/tax_regimes/npd/',
     },
   },
+  {
+    id: 'consumer-protection',
+    title: 'Закон РБ «О защите прав потребителей» (Правила возвратов на WB)',
+    categories: ['clothes', 'shoes', 'cosmetics', 'npd'],
+    icon: RotateCcw,
+    body: 'Регулирует права покупателей при возврате товаров надлежащего и ненадлежащего качества. Торговля через маркетплейс признается дистанционной торговлей в РБ. Селлер обязан принимать возвраты брака и компенсировать стоимость доставки, если вина лежит на продавце. Некоторые категории (например, белье 1-го слоя, косметика) надлежащего качества возврату не подлежат.',
+    source: {
+      label: 'Текст Закона на Pravo.by — pravo.by',
+      url: 'https://pravo.by',
+    },
+  },
+  {
+    id: 'advertising-law',
+    title: 'Закон РБ «О рекламе» (Маркировка интернет-продвижения и саморекламы)',
+    categories: ['clothes', 'shoes', 'cosmetics'],
+    icon: Megaphone,
+    body: 'Продвижение карточек товаров на Wildberries (внутренняя реклама, баннеры, участие в платных блоках) на территории РБ должно строго соответствовать закону о рекламе. Запрещено использование недостоверных сведений, слов «лучший», «номер один» без документального подтверждения. Реклама товаров, подлежащих обязательной сертификации, без наличия этих сертификатов запрещена.',
+    source: {
+      label: 'Текст Закона на Pravo.by — pravo.by',
+      url: 'https://pravo.by',
+    },
+  },
+  {
+    id: 'currency-control-178',
+    title: 'Валютный контроль и Указ № 178 (Экспортные операции при торговле на РФ)',
+    categories: ['clothes', 'shoes', 'cosmetics'],
+    icon: Globe2,
+    body: 'Продажи товаров со склада в РБ покупателям из России через Wildberries признаются внешнеторговой деятельностью. Селлеры обязаны соблюдать сроки репатриации валютной выручки и регистрировать валютные договоры на портале Национального банка РБ при превышении установленных законодательством РБ лимитов по сумме сделки.',
+    source: {
+      label: 'Указ Президента № 178 на Pravo.by — pravo.by',
+      url: 'https://pravo.by',
+    },
+  },
+  {
+    id: 'decree-7-business',
+    title: 'Декрет № 7 «О развитии предпринимательства»',
+    categories: ['general', 'clothes', 'shoes', 'cosmetics', 'npd'],
+    icon: FileCheck2,
+    body: 'Ключевой документ, упрощающий ведение бизнеса в Беларуси. Вводит уведомления о начале осуществления видов деятельности и минимизирует встречные проверки со стороны госорганов. Однако он накладывает на селлера личную ответственность за обеспечение безопасности продаваемых товаров и соответствие их санитарным нормам.',
+    source: {
+      label: 'Декрет № 7 на Pravo.by — pravo.by',
+      url: 'https://pravo.by',
+    },
+  },
 ];
 
 export const FALLBACK_LAW_TITLE = 'Нужного закона нет в списке?';
@@ -154,7 +204,7 @@ const cardClass =
 const normalizeText = (value: string) =>
   value.toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
 
-/** Полный текст карточки для живого поиска: заголовок, описание, примечание и метки ниш */
+/** Полный текст карточки для живого поиска: заголовок, описание, примечание, источник и метки ниш */
 const buildSearchText = (card: LawCardData) =>
   normalizeText(
     [
@@ -166,17 +216,34 @@ const buildSearchText = (card: LawCardData) =>
     ].join(' ')
   );
 
-const LAW_SEARCH_TEXT: Record<string, string> = Object.fromEntries(
-  LAW_CARDS.map((card) => [card.id, buildSearchText(card)])
+/** Индекс слов карточки — используется для поиска по корню слова */
+const LAW_SEARCH_TOKENS: Record<string, string[]> = Object.fromEntries(
+  LAW_CARDS.map((card) => [card.id, buildSearchText(card).split(' ').filter(Boolean)])
 );
+
+/** Короче 3 символов подстрока не ищется — иначе запрос вроде «о» или «в» ловил бы всё подряд */
+const MIN_SUBSTRING_LENGTH = 3;
+
+/** Длина среза слова: «валюта» находит «валютной», «реклама» — «рекламного», «возврат» — «возврате» */
+const STEM_LENGTH = 5;
+
+const stemOf = (word: string) => word.slice(0, STEM_LENGTH);
+
+/** Совпадение по морфологии без словаря: подстрока либо совпадение начала слова */
+const wordMatchesToken = (word: string, token: string) => {
+  if (word.length >= MIN_SUBSTRING_LENGTH && token.includes(word)) return true;
+  return (
+    word.length >= STEM_LENGTH && token.length >= STEM_LENGTH && stemOf(word) === stemOf(token)
+  );
+};
 
 /** Каждое слово запроса должно встречаться в тексте карточки (AND-поиск по словам) */
 export function matchesLawQuery(card: LawCardData, query: string): boolean {
   const words = normalizeText(query).split(' ').filter(Boolean);
   if (words.length === 0) return true;
 
-  const haystack = LAW_SEARCH_TEXT[card.id] ?? buildSearchText(card);
-  return words.every((word) => haystack.includes(word));
+  const tokens = LAW_SEARCH_TOKENS[card.id] ?? buildSearchText(card).split(' ').filter(Boolean);
+  return words.every((word) => tokens.some((token) => wordMatchesToken(word, token)));
 }
 
 /** Карточка видна только когда совпадают ОБА условия: выбранный тег И поисковый запрос */
