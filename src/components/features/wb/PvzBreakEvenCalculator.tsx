@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Calculator as CalculatorIcon,
   Coins,
+  Landmark,
   Percent,
   RotateCcw,
   Store,
@@ -19,13 +20,15 @@ import {
   DEFAULT_PVZ_FORM,
   PVZ_BAD_MONTH_FINES,
   PVZ_CONFIG,
-  PVZ_ZONES,
+  PVZ_ZONES_BY_GROUP,
   PVZ_ZONE_CUSTOM_ID,
+  PVZ_TAX_SYSTEMS,
   calculatePvzBreakEven,
   formatZonePercent,
   roundMoney,
   toNumber,
   type PvzBreakEvenForm,
+  type PvzTaxId,
 } from '@/lib/services/pvzBreakEven';
 import type { Feature } from '@/types/section';
 
@@ -91,7 +94,7 @@ interface MetricRowProps {
   label: string;
   value: string;
   sub?: string;
-  tone?: 'default' | 'muted' | 'accent' | 'danger';
+  tone?: 'default' | 'muted' | 'accent' | 'warn' | 'danger';
 }
 
 function MetricRow({ label, value, sub, tone = 'default' }: MetricRowProps) {
@@ -99,6 +102,7 @@ function MetricRow({ label, value, sub, tone = 'default' }: MetricRowProps) {
     default: 'text-neutral-900',
     muted: 'text-neutral-500',
     accent: 'text-[var(--primary)]',
+    warn: 'text-amber-700',
     danger: 'text-red-600',
   };
 
@@ -166,6 +170,10 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
     setForm((prev) => ({ ...prev, zone: value }));
   };
 
+  const updateTaxSystem = (value: PvzTaxId) => {
+    setForm((prev) => ({ ...prev, tax_system: value }));
+  };
+
   const result = useMemo(() => calculatePvzBreakEven(form, badMonth), [form, badMonth]);
 
   const isCustomZone = form.zone === PVZ_ZONE_CUSTOM_ID;
@@ -173,6 +181,10 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
   /** Расходы точки, распределённые на один выданный заказ */
   const expensesPerOrder =
     result.ordersPerMonth > 0 ? roundMoney(result.fixedExpenses / result.ordersPerMonth) : 0;
+  /** Чистый доход после налогов ушёл в минус (штрафы «плохого месяца» или слабый оборот) */
+  const isNetLoss = result.netProfitByn < 0;
+  /** При убытке налог не начисляется — иначе точка безубыточность поехала бы в минус */
+  const taxApplied = result.preTaxProfitByn > 0 && result.taxAmountByn > 0;
 
   return (
     <SectionContentWrapper feature={feature}>
@@ -200,10 +212,14 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                     onInput={(e) => updateZone(e.currentTarget.value)}
                     className={selectClass}
                   >
-                    {PVZ_ZONES.map((zone) => (
-                      <option key={zone.id} value={zone.id}>
-                        {zone.label}
-                      </option>
+                    {PVZ_ZONES_BY_GROUP.map(({ group, options }) => (
+                      <optgroup key={group} label={group}>
+                        {options.map((zone) => (
+                          <option key={zone.id} value={zone.id}>
+                            {zone.label} (Выплата: {formatZonePercent(zone.rate)} от оборота)
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                   <p className="text-[11px] leading-tight text-neutral-400 mt-1">
@@ -230,7 +246,7 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                         onChange={updateText('custom_rate')}
                         unit="%"
                         step="0.1"
-                        hint={`В расчёте используется ${formatZonePercent(result.rate)} от оборота`}
+                        hint={`В расчёте используется ${formatZonePercent(result.rate)} от оборота · по умолчанию 3.5%`}
                       />
                     </div>
                   </div>
@@ -291,7 +307,54 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                     step="0.5"
                     hint={`${PVZ_CONFIG.DAYS_IN_MONTH} дней в расчётном месяце`}
                   />
+                  <div className="md:col-span-2">
+                    <NumberField
+                      id="pvz-turnover"
+                      label="Фактический оборот выданных заказов в месяц, BYN"
+                      value={form.turnover}
+                      onChange={updateText('turnover')}
+                      unit="BYN"
+                      step="100"
+                      hint={`База для чистого дохода: ${formatZonePercent(result.rate)} от этого оборота = ${formatMoney(result.grossRevenueByn)} BYN валового дохода ПВЗ`}
+                    />
+                  </div>
                 </div>
+
+                {/* ═══ Налоговый модуль РБ для ИП ═══ */}
+                <fieldset className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                  <legend className="px-1 text-sm font-semibold text-neutral-900">
+                    Система налогообложения ИП в РБ
+                  </legend>
+                  <div className="space-y-2 mt-1">
+                    {PVZ_TAX_SYSTEMS.map((system) => (
+                      <label
+                        key={system.id}
+                        className="flex items-start gap-2 text-sm text-neutral-700 cursor-pointer select-none"
+                      >
+                        <input
+                          type="radio"
+                          name="pvz-tax-system"
+                          value={system.id}
+                          checked={form.tax_system === system.id}
+                          onChange={(e) => updateTaxSystem(e.target.value as PvzTaxId)}
+                          onInput={(e) => updateTaxSystem(e.currentTarget.value as PvzTaxId)}
+                          className="w-4 h-4 mt-0.5 border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                        />
+                        <span className="min-w-0">
+                          <span className="font-medium">{system.label}</span>
+                          <span className="block text-[11px] leading-tight text-neutral-400">
+                            {system.hint}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-[11px] leading-tight text-neutral-400">
+                    Формула: чистая прибыль = (валовый доход ПВЗ − постоянные расходы) × (1 −{' '}
+                    {format(result.taxRatePercent, 0)}%). Налог удерживается только с прибыли: при убытке точки он
+                    равен 0, поэтому точка безубыточность не искажается.
+                  </p>
+                </fieldset>
 
                 {/* ═══ Симулятор «плохого месяца» ═══ */}
                 <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
@@ -428,6 +491,36 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                 клиентам.
               </p>
 
+              {/* ═══ Чистый доход селлера после налогов РБ ═══ */}
+              <div
+                className={cn(
+                  'mt-5 rounded-xl border p-4',
+                  isNetLoss
+                    ? 'bg-red-100 border-red-400'
+                    : isBadMonth
+                      ? 'bg-red-50 border-red-300'
+                      : 'bg-white border-emerald-300'
+                )}
+              >
+                <p className="text-xs sm:text-sm font-medium text-neutral-600">
+                  Ваш чистый прогнозируемый доход (после налогов)
+                </p>
+                <p
+                  className={cn(
+                    'mt-1 text-2xl sm:text-3xl font-extrabold tabular-nums tracking-tight',
+                    isNetLoss ? 'text-red-700' : 'text-emerald-700'
+                  )}
+                >
+                  {formatMoney(result.netProfitByn)} BYN в месяц
+                </p>
+                <p className="text-[11px] leading-tight text-neutral-500">
+                  {result.taxLabel} · ставка {format(result.taxRatePercent, 0)}% ·{' '}
+                  {taxApplied
+                    ? `налог ${formatMoney(result.taxAmountByn)} BYN удержан с прибыли`
+                    : 'налог 0 BYN: точка в минусе, налог не начисляется'}
+                </p>
+              </div>
+
               <p className={cn('mt-2 text-xs sm:text-sm', isBadMonth ? 'text-red-700' : 'text-neutral-500')}>
                 {result.ordersPerMonth > 0 ? (
                   <>
@@ -495,14 +588,41 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                 value={`${formatMoney(result.payoutByn)} BYN`}
                 sub={`${formatMoney(result.requiredTurnoverByn)} BYN × ${formatZonePercent(result.rate)}`}
               />
-              {isBadMonth && (
+
+              {/* ═══ Налоговый модуль РБ: налог удерживается с прибыли, а не плюсуется к расходам ═══ */}
+              <div className="mt-4 pt-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Landmark className="w-4 h-4 text-[var(--primary)]" aria-hidden="true" />
+                  <p className="text-sm font-semibold text-neutral-900">{result.taxLabel}</p>
+                </div>
                 <MetricRow
-                  label="Чистый остаток прибыли"
-                  value={`-${formatMoney(result.finesTotal)} BYN`}
-                  sub="минус: постоянные расходы выросли на сумму штрафов"
-                  tone="danger"
+                  label="Валовый доход ПВЗ (фактический оборот)"
+                  value={`${formatMoney(result.grossRevenueByn)} BYN`}
+                  sub={`${formatMoney(result.turnoverByn)} BYN × ${formatZonePercent(result.rate)}`}
                 />
-              )}
+                <MetricRow
+                  label="Прибыль до налогов"
+                  value={`${formatMoney(result.preTaxProfitByn)} BYN`}
+                  sub="валовый доход − постоянные расходы"
+                  tone={isNetLoss ? 'danger' : 'default'}
+                />
+                <MetricRow
+                  label={`Налог ${format(result.taxRatePercent, 0)}% от прибыли`}
+                  value={`${formatMoney(result.taxAmountByn)} BYN`}
+                  sub={
+                    taxApplied
+                      ? `(${formatMoney(result.preTaxProfitByn)} × ${format(result.taxRatePercent, 0)}%)`
+                      : 'прибыли нет — налог автоматически 0'
+                  }
+                  tone={taxApplied ? 'warn' : 'muted'}
+                />
+                <MetricRow
+                  label="Чистый прогнозируемый доход «на жизнь»"
+                  value={`${formatMoney(result.netProfitByn)} BYN`}
+                  sub="(валовый доход − расходы) × (1 − ставка налога)"
+                  tone={isNetLoss ? 'danger' : 'accent'}
+                />
+              </div>
             </BlockCard>
 
             {/* Формула точки безубыточности */}
@@ -554,6 +674,16 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                   <span>
                     Клиентов в день = Math.ceil(заказы ÷ {PVZ_CONFIG.DAYS_IN_MONTH}) ={' '}
                     <strong className="text-[var(--primary)]">{result.clientsPerDay}</strong>
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-semibold text-neutral-900 tabular-nums">7.</span>
+                  <span>
+                    Чистый доход = (валовый доход {formatMoney(result.grossRevenueByn)} − расходы{' '}
+                    {formatMoney(result.fixedExpenses)}) × (1 − {format(result.taxRatePercent, 0)}%) ={' '}
+                    <strong className={isNetLoss ? 'text-red-600' : 'text-[var(--primary)]'}>
+                      {formatMoney(result.netProfitByn)} BYN
+                    </strong>
                   </span>
                 </li>
               </ol>
@@ -615,14 +745,14 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                     />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm text-neutral-500">Выплата WB за месяц</p>
+                    <p className="text-sm text-neutral-500">Валовый доход за месяц</p>
                     <p
                       className={cn(
                         'text-lg font-semibold tabular-nums',
-                        isBadMonth ? 'text-red-700' : 'text-neutral-900'
+                        isNetLoss ? 'text-red-700' : 'text-neutral-900'
                       )}
                     >
-                      {formatMoney(result.payoutByn)} BYN
+                      {formatMoney(result.grossRevenueByn)} BYN
                     </p>
                     <p className="text-xs text-neutral-400 tabular-nums">
                       ставка зоны {formatZonePercent(result.rate)}

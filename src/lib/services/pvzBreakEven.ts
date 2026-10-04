@@ -9,6 +9,11 @@
  *  5) Количество заказов в месяц = оборот в BYN ÷ средний чек.
  *  6) Минимум клиентов в день = Math.ceil(заказы в месяц ÷ 30).
  *
+ * Налоговый модуль РБ (чистая прибыль селлера):
+ *  Чистая_Прибыль = (Валовый_Доход_ПВЗ − Постоянные_Расходы) × (1 − Ставка_Налога / 100).
+ *  Налог НЕ прибавляется к расходам, а удерживается только с положительной прибыли:
+ *  при убытке точки налог автоматически равен 0, точка безубыточности не ломается.
+ *
  * Все денежные величины округляются до двух знаков (защита от багов float),
  * любые некорректные/пустые значения инпутов не ломают расчёт (`|| 0`).
  */
@@ -26,6 +31,8 @@ export const PVZ_CONFIG = {
   DEFAULT_UTILITIES: 400,
   /** Средний чек одного заказа WB по умолчанию, BYN */
   DEFAULT_AVG_CHECK: 55,
+  /** Фактический оборот точки по умолчанию, BYN (чуть выше точки безубыточности) */
+  DEFAULT_TURNOVER: 120000,
 } as const;
 
 /**
@@ -52,35 +59,75 @@ export const toNumber = (value: string | number | undefined | null): number => {
 
 export interface PvzZone {
   id: string;
-  /** Название зоны с процентом выплат — попадает в <option> */
+  /** Название зоны — попадает в <option> */
   label: string;
-  /** Процент выплат ПВЗ от оборота как ДОЛЯ (0.04 = 4%) */
+  /** Процент выплат ПВЗ от оборота как ДОЛЯ (0.035 = 3.5%) */
   rate: number;
+  /** Группа населённых пунктов — попадает в <optgroup> */
+  group: string;
 }
 
 /** id ручной зоны: активирует скрытое поле «Кастомный тариф зоны, %» */
 export const PVZ_ZONE_CUSTOM_ID = 'zone_custom';
 
+/** Ставка кастомной зоны по умолчанию — 3.5% от оборота */
+export const PVZ_ZONE_CUSTOM_RATE = 0.035;
+
+export const PVZ_ZONE_GROUP_MINSK = 'Минск и Минский район';
+export const PVZ_ZONE_GROUP_REGIONAL = 'Областные центры РБ (Брест, Гродно, Гомель, Витебск, Могилев)';
+export const PVZ_ZONE_GROUP_SUBSIDY = 'Малые города и сельская местность (Субсидируемые регионы)';
+export const PVZ_ZONE_GROUP_CUSTOM = 'УНИВЕРСАЛЬНЫЙ ВВОД';
+
+/** Порядок групп в выпадающем списке сохраняется */
+export const PVZ_ZONE_GROUPS: string[] = [
+  PVZ_ZONE_GROUP_MINSK,
+  PVZ_ZONE_GROUP_REGIONAL,
+  PVZ_ZONE_GROUP_SUBSIDY,
+  PVZ_ZONE_GROUP_CUSTOM,
+];
+
 export const PVZ_ZONES: PvzZone[] = [
   {
-    id: 'zone_purple',
-    label: 'Фиолетовая зона (Выплата: 4.0% от оборота)',
-    rate: 0.04,
+    id: 'zone_minsk_standard',
+    label: 'Минск — Зона Стандарт',
+    rate: 0.035,
+    group: PVZ_ZONE_GROUP_MINSK,
   },
   {
-    id: 'zone_bordeaux',
-    label: 'Бордовая зона (Выплата: 3.2% от оборота)',
-    rate: 0.032,
+    id: 'zone_minsk_red',
+    label: 'Минск — Зона Насыщенная (Красная)',
+    rate: 0.028,
+    group: PVZ_ZONE_GROUP_MINSK,
   },
   {
-    id: 'zone_green_subsidy',
-    label: 'Зеленая зона повышенных субсидий (Выплата: 4.5% от оборота)',
+    id: 'zone_regional_standard',
+    label: 'Областной город — Зона Стандарт',
+    rate: 0.038,
+    group: PVZ_ZONE_GROUP_REGIONAL,
+  },
+  {
+    id: 'zone_regional_new',
+    label: 'Областной город — Новые кварталы',
+    rate: 0.042,
+    group: PVZ_ZONE_GROUP_REGIONAL,
+  },
+  {
+    id: 'zone_district_center',
+    label: 'Районный центр (население до 50 тыс.)',
     rate: 0.045,
+    group: PVZ_ZONE_GROUP_SUBSIDY,
+  },
+  {
+    id: 'zone_village_max',
+    label: 'Деревни / Села / Поселки (Максимальная субсидия)',
+    rate: 0.05,
+    group: PVZ_ZONE_GROUP_SUBSIDY,
   },
   {
     id: PVZ_ZONE_CUSTOM_ID,
-    label: 'Другая зона (ввести процент вознаграждения вручную)',
-    rate: 0.04,
+    label: 'Кастомная тарифная зона (ввести процент вручную)',
+    rate: PVZ_ZONE_CUSTOM_RATE,
+    group: PVZ_ZONE_GROUP_CUSTOM,
   },
 ];
 
@@ -89,6 +136,17 @@ export const DEFAULT_ZONE_ID = PVZ_ZONES[0].id;
 export function getPvzZone(id: string): PvzZone {
   return PVZ_ZONES.find((zone) => zone.id === id) ?? PVZ_ZONES[0];
 }
+
+export interface PvzZoneGroup {
+  group: string;
+  options: PvzZone[];
+}
+
+/** Зоны, сгруппированные по типу населённых пунктов — для <optgroup> */
+export const PVZ_ZONES_BY_GROUP: PvzZoneGroup[] = PVZ_ZONE_GROUPS.map((group) => ({
+  group,
+  options: PVZ_ZONES.filter((zone) => zone.group === group),
+})).filter((entry) => entry.options.length > 0);
 
 /** Скрытый массив штрафов симулятора «плохого месяца», BYN */
 export interface PvzFine {
@@ -102,19 +160,62 @@ export interface PvzFine {
 export const PVZ_BAD_MONTH_FINES: PvzFine[] = [
   {
     id: 'fine_electronics',
-    reason: 'Штраф за утерю/подмену дорогой электроники сотрудником',
+    reason: 'Штраф за потерю/подмену дорогого товара сотрудником',
     amount: 1100,
   },
   {
     id: 'fine_rating',
-    reason: 'Удержание дохода за падение рейтинга точки ниже 4.95 звезд',
+    reason: 'Падение рейтинга ПВЗ ниже 4.95 (депремирование)',
     amount: 800,
+  },
+  {
+    id: 'fine_acceptance',
+    reason: 'Штраф за просрочку разбора утренней приёмки (зависла поставка)',
+    amount: 350,
+  },
+  {
+    id: 'fine_videofixation',
+    reason: 'Штрафы по видеофиксации (не выдал пакет, грязь на ПВЗ, отсутствие формы)',
+    amount: 200,
   },
 ];
 
 export const PVZ_FINE_TOTAL: number = roundMoney(
   PVZ_BAD_MONTH_FINES.reduce((sum, fine) => sum + fine.amount, 0)
 );
+
+/** Система налогообложения ИП в РБ: налог берётся только с ПОЛОЖИТЕЛЬНОЙ прибыли */
+export type PvzTaxId = 'income' | 'osn_vat';
+
+export interface PvzTaxSystem {
+  id: PvzTaxId;
+  label: string;
+  /** Ставка налога, % от прибыли */
+  rate: number;
+  /** Пояснение для интерфейса */
+  hint: string;
+}
+
+export const PVZ_TAX_SYSTEMS: PvzTaxSystem[] = [
+  {
+    id: 'income',
+    label: 'Подоходный налог (ставка 20% от чистой прибыли)',
+    rate: 20,
+    hint: 'Налог начисляется только с прибыли: при убытке точки ставка равна 0.',
+  },
+  {
+    id: 'osn_vat',
+    label: 'Общая система с НДС (ОСН)',
+    rate: 40,
+    hint: 'Эффективная нагрузка ОСН: НДС 20% + налог на прибыль 20%. НДС идёт в вычет, поэтому в формуле (1 − ставка) применяется 40%.',
+  },
+];
+
+export const DEFAULT_PVZ_TAX_ID: PvzTaxId = 'income';
+
+export function getPvzTaxSystem(id: string): PvzTaxSystem {
+  return PVZ_TAX_SYSTEMS.find((system) => system.id === id) ?? PVZ_TAX_SYSTEMS[0];
+}
 
 export interface PvzBreakEvenForm {
   /** id тарифной зоны ПВЗ */
@@ -129,15 +230,21 @@ export interface PvzBreakEvenForm {
   utilities: string;
   /** Средний чек одного заказа на WB, BYN */
   avg_check: string;
+  /** Фактический оборот выданных заказов в месяц, BYN — база для чистого дохода */
+  turnover: string;
+  /** Система налогообложения ИП в РБ */
+  tax_system: PvzTaxId;
 }
 
 export const DEFAULT_PVZ_FORM: PvzBreakEvenForm = {
   zone: DEFAULT_ZONE_ID,
-  custom_rate: '4',
+  custom_rate: '3.5',
   rent: String(PVZ_CONFIG.DEFAULT_RENT),
   staff: String(PVZ_CONFIG.DEFAULT_STAFF),
   utilities: String(PVZ_CONFIG.DEFAULT_UTILITIES),
   avg_check: String(PVZ_CONFIG.DEFAULT_AVG_CHECK),
+  turnover: String(PVZ_CONFIG.DEFAULT_TURNOVER),
+  tax_system: DEFAULT_PVZ_TAX_ID,
 };
 
 export interface PvzBreakEvenResult {
@@ -172,6 +279,21 @@ export interface PvzBreakEvenResult {
   payoutByn: number;
   /** Курс, по которому считается оборот в RUB */
   rubPerByn: number;
+
+  /** Фактический оборот точки, BYN */
+  turnoverByn: number;
+  /** Валовый доход ПВЗ при фактическом обороте, BYN */
+  grossRevenueByn: number;
+  /** Прибыль до налогов: валовый доход − постоянные расходы, BYN */
+  preTaxProfitByn: number;
+  /** Налог, BYN. При убытке автоматически 0, чтобы не ломать точку безубыточности */
+  taxAmountByn: number;
+  /** Чистая прибыль после налогов = (валовый доход − расходы) × (1 − ставка/100), BYN */
+  netProfitByn: number;
+  /** Ставка налога, применённая в расчёте, % */
+  taxRatePercent: number;
+  /** Название системы налогообложения */
+  taxLabel: string;
 }
 
 export function calculatePvzBreakEven(
@@ -180,8 +302,9 @@ export function calculatePvzBreakEven(
 ): PvzBreakEvenResult {
   const isCustomZone = form.zone === PVZ_ZONE_CUSTOM_ID;
   const zone = getPvzZone(form.zone);
+  const taxSystem = getPvzTaxSystem(form.tax_system);
 
-  // Кастомная ставка вводится в процентах (4 = 4%) и переводится в долю оборота
+  // Кастомная ставка вводится в процентах (3.5 = 3.5%) и переводится в долю оборота
   const customPercent = Math.max(0, toNumber(form.custom_rate) || 0);
   const rate = isCustomZone ? roundTo(customPercent / 100, 6) : zone.rate;
   const safeRate = Math.max(0, toNumber(rate) || 0);
@@ -190,6 +313,7 @@ export function calculatePvzBreakEven(
   const staff = roundMoney(toNumber(form.staff) || 0);
   const utilities = roundMoney(toNumber(form.utilities) || 0);
   const avgCheck = roundMoney(toNumber(form.avg_check) || 0);
+  const turnoverByn = roundMoney(toNumber(form.turnover) || 0);
 
   const baseExpenses = roundMoney(rent + staff + utilities);
   const finesTotal = badMonth ? PVZ_FINE_TOTAL : 0;
@@ -212,10 +336,21 @@ export function calculatePvzBreakEven(
 
   const payoutByn = roundMoney(requiredTurnoverByn * safeRate);
 
+  // Налоговый модуль РБ: налог НЕ прибавляется к расходам, а удерживается с прибыли.
+  // Чистая_Прибыль = (Валовый_Доход_ПВЗ − Постоянные_Расходы) × (1 − Ставка_Налога / 100).
+  // При убытке налог автоматически 0 — точка безубыточности не ломается.
+  const taxRatePercent = Math.min(100, Math.max(0, toNumber(taxSystem.rate) || 0));
+  const grossRevenueByn = roundMoney(turnoverByn * safeRate);
+  const preTaxProfitByn = roundMoney(grossRevenueByn - fixedExpenses);
+  const taxAmountByn =
+    preTaxProfitByn > 0 ? roundMoney(preTaxProfitByn * (taxRatePercent / 100)) : 0;
+  const netProfitByn =
+    preTaxProfitByn > 0 ? roundMoney((preTaxProfitByn / 100) * (100 - taxRatePercent)) : preTaxProfitByn;
+
   return {
     rate: safeRate,
     ratePercent: roundTo(safeRate * 100, 2),
-    zoneLabel: isCustomZone ? `Другая зона (${formatZonePercent(safeRate)})` : zone.label,
+    zoneLabel: isCustomZone ? `Кастомная тарифная зона (${formatZonePercent(safeRate)})` : zone.label,
     isCustomZone,
 
     rent,
@@ -232,6 +367,14 @@ export function calculatePvzBreakEven(
     clientsPerDay: Number.isFinite(clientsPerDay) && clientsPerDay > 0 ? clientsPerDay : 0,
     payoutByn,
     rubPerByn: PVZ_CONFIG.RUB_PER_BYN,
+
+    turnoverByn,
+    grossRevenueByn,
+    preTaxProfitByn,
+    taxAmountByn,
+    netProfitByn,
+    taxRatePercent: roundTo(taxRatePercent, 2),
+    taxLabel: taxSystem.label,
   };
 }
 
