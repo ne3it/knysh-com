@@ -14,6 +14,13 @@
  *  Налог НЕ прибавляется к расходам, а удерживается только с положительной прибыли:
  *  при убытке точки налог автоматически равен 0, точка безубыточности не ломается.
  *
+ * ФОТ собирается из динамического списка сотрудников (как спецификация ТТН-1):
+ *  ФОТ = Σ окладов + 34% (взносы в ФСЗН) + 0.6% (Белгосстрах).
+ *
+ * Сравнение теории с реальностью:
+ *  Ожидаемый поток клиентов (чел./день) сравнивается с минимумом клиентов в день,
+ *  необходимым для выхода в ноль: покрывает или нет.
+ *
  * Все денежные величины округляются до двух знаков (защита от багов float),
  * любые некорректные/пустые значения инпутов не ломают расчёт (`|| 0`).
  */
@@ -25,14 +32,18 @@ export const PVZ_CONFIG = {
   DAYS_IN_MONTH: 30,
   /** Ежемесячная аренда помещения по умолчанию, BYN */
   DEFAULT_RENT: 1200,
-  /** ФОТ двух менеджеров с налогами по умолчанию, BYN */
-  DEFAULT_STAFF: 2200,
   /** Коммуналка, интернет и охрана по умолчанию, BYN */
   DEFAULT_UTILITIES: 400,
   /** Средний чек одного заказа WB по умолчанию, BYN */
   DEFAULT_AVG_CHECK: 55,
   /** Фактический оборот точки по умолчанию, BYN (чуть выше точки безубыточности) */
   DEFAULT_TURNOVER: 120000,
+  /** Ожидаемый поток клиентов по умолчанию, чел./день */
+  DEFAULT_TRAFFIC: 80,
+  /** Взносы в ФСЗН за работника в РБ, % от оклада */
+  FSZN_EMPLOYEE_RATE: 34,
+  /** Взносы в Белгосстрах за работника в РБ, % от оклада */
+  BGS_EMPLOYEE_RATE: 0.6,
 } as const;
 
 /**
@@ -224,28 +235,107 @@ export interface PvzBreakEvenForm {
   custom_rate: string;
   /** Ежемесячная аренда помещения, BYN */
   rent: string;
-  /** ФОТ сотрудников в месяц (зарплата 2-х менеджеров + налоги), BYN */
-  staff: string;
+  /** Сотрудники ПВЗ: многострочный список с окладами (как спецификация ТТН-1) */
+  employees: PvzEmployee[];
   /** Коммуналка, интернет и охрана точки, BYN */
   utilities: string;
   /** Средний чек одного заказа на WB, BYN */
   avg_check: string;
   /** Фактический оборот выданных заказов в месяц, BYN — база для чистого дохода */
   turnover: string;
+  /** Ожидаемый поток клиентов, чел./день — сравнение с точкой безубыточности */
+  traffic: string;
   /** Система налогообложения ИП в РБ */
   tax_system: PvzTaxId;
+}
+
+/**
+ * Строка персонала ПВЗ — по аналогии со строкой спецификации ТТН-1:
+ * несколько сотрудников добавляются кнопкой «Добавить сотрудника».
+ */
+export interface PvzEmployee {
+  /** Стабильный ключ строки: не зависит от позиции в массиве */
+  id: string;
+  /** Должность или имя сотрудника */
+  position: string;
+  /** Оклад / зарплата за месяц на руки, BYN */
+  salary: string;
+}
+
+/** Значения строки персонала без служебного ключа */
+export type PvzEmployeeValues = Omit<PvzEmployee, 'id'>;
+
+/** Первая строка персонала предзаполняется демонстрационными значениями */
+export const DEFAULT_EMPLOYEE: PvzEmployeeValues = {
+  position: 'Менеджер смены 1',
+  salary: '900',
+};
+
+/** Добавляемые пользователем строки создаются пустыми */
+export const EMPTY_EMPLOYEE: PvzEmployeeValues = {
+  position: '',
+  salary: '',
+};
+
+let employeeSeq = 0;
+
+/** Идентификатор строки не зависит от её позиции в массиве */
+const nextEmployeeId = () => {
+  employeeSeq += 1;
+  return `emp-${employeeSeq}`;
+};
+
+export function createPvzEmployee(values: PvzEmployeeValues = EMPTY_EMPLOYEE): PvzEmployee {
+  return { id: nextEmployeeId(), ...values };
 }
 
 export const DEFAULT_PVZ_FORM: PvzBreakEvenForm = {
   zone: DEFAULT_ZONE_ID,
   custom_rate: '3.5',
   rent: String(PVZ_CONFIG.DEFAULT_RENT),
-  staff: String(PVZ_CONFIG.DEFAULT_STAFF),
+  employees: [createPvzEmployee(DEFAULT_EMPLOYEE)],
   utilities: String(PVZ_CONFIG.DEFAULT_UTILITIES),
   avg_check: String(PVZ_CONFIG.DEFAULT_AVG_CHECK),
   turnover: String(PVZ_CONFIG.DEFAULT_TURNOVER),
+  traffic: String(PVZ_CONFIG.DEFAULT_TRAFFIC),
   tax_system: DEFAULT_PVZ_TAX_ID,
 };
+
+/** Разложенный фонд оплаты труда: оклады + взносы ФСЗН и Белгосстраха */
+export interface PvzPayroll {
+  /** Количество сотрудников в штате */
+  headcount: number;
+  /** Сумма окладов «на руки», BYN */
+  salariesTotal: number;
+  /** Взносы в ФСЗН, BYN (34% от окладов) */
+  fsznTotal: number;
+  /** Взносы в Белгосстрах, BYN (0.6% от окладов) */
+  bgsTotal: number;
+  /** Итоговый ФОТ, идущий в постоянные расходы, BYN */
+  total: number;
+}
+
+/**
+ * ФОТ = Σ окладов + 34% (ФСЗН за работника) + 0.6% (Белгосстрах).
+ * Оба взноса считаются от базы окладов, поэтому итог = оклады × 1.346.
+ * Любые пустые/мусорные оклады дают 0 (защита от NaN).
+ */
+export function calculatePayroll(employees: PvzEmployee[]): PvzPayroll {
+  const list = Array.isArray(employees) ? employees : [];
+  const salariesTotal = roundMoney(
+    list.reduce((sum, employee) => sum + Math.max(0, toNumber(employee?.salary) || 0), 0)
+  );
+  const fsznTotal = roundMoney((salariesTotal * PVZ_CONFIG.FSZN_EMPLOYEE_RATE) / 100);
+  const bgsTotal = roundMoney((salariesTotal * PVZ_CONFIG.BGS_EMPLOYEE_RATE) / 100);
+
+  return {
+    headcount: list.length,
+    salariesTotal,
+    fsznTotal,
+    bgsTotal,
+    total: roundMoney(salariesTotal + fsznTotal + bgsTotal),
+  };
+}
 
 export interface PvzBreakEvenResult {
   /** Ставка выплаты зоны, ДОЛЯ оборота */
@@ -256,7 +346,8 @@ export interface PvzBreakEvenResult {
   isCustomZone: boolean;
 
   rent: number;
-  staff: number;
+  /** Разложенный ФОТ: оклады сотрудников + взносы ФСЗН 34% и Белгосстрах 0.6% */
+  payroll: PvzPayroll;
   utilities: number;
   /** Постоянные расходы без штрафов, BYN */
   baseExpenses: number;
@@ -294,6 +385,11 @@ export interface PvzBreakEvenResult {
   taxRatePercent: number;
   /** Название системы налогообложения */
   taxLabel: string;
+
+  /** Ожидаемый поток клиентов, чел./день (ввод пользователя) */
+  trafficPerDay: number;
+  /** Прогноз трафика покрывает точку безубыточности */
+  trafficCoversBreakEven: boolean;
 }
 
 export function calculatePvzBreakEven(
@@ -310,12 +406,13 @@ export function calculatePvzBreakEven(
   const safeRate = Math.max(0, toNumber(rate) || 0);
 
   const rent = roundMoney(toNumber(form.rent) || 0);
-  const staff = roundMoney(toNumber(form.staff) || 0);
+  const payroll = calculatePayroll(form.employees);
   const utilities = roundMoney(toNumber(form.utilities) || 0);
   const avgCheck = roundMoney(toNumber(form.avg_check) || 0);
   const turnoverByn = roundMoney(toNumber(form.turnover) || 0);
+  const trafficPerDay = Math.max(0, roundTo(toNumber(form.traffic) || 0, 0));
 
-  const baseExpenses = roundMoney(rent + staff + utilities);
+  const baseExpenses = roundMoney(rent + payroll.total + utilities);
   const finesTotal = badMonth ? PVZ_FINE_TOTAL : 0;
   const fixedExpenses = roundMoney(baseExpenses + finesTotal);
 
@@ -347,6 +444,9 @@ export function calculatePvzBreakEven(
   const netProfitByn =
     preTaxProfitByn > 0 ? roundMoney((preTaxProfitByn / 100) * (100 - taxRatePercent)) : preTaxProfitByn;
 
+  // Сравнение теории с реальностью: хватает ли ожидаемого потока клиентов
+  const trafficCoversBreakEven = trafficPerDay >= clientsPerDay;
+
   return {
     rate: safeRate,
     ratePercent: roundTo(safeRate * 100, 2),
@@ -354,7 +454,7 @@ export function calculatePvzBreakEven(
     isCustomZone,
 
     rent,
-    staff,
+    payroll,
     utilities,
     baseExpenses,
     finesTotal,
@@ -375,6 +475,9 @@ export function calculatePvzBreakEven(
     netProfitByn,
     taxRatePercent: roundTo(taxRatePercent, 2),
     taxLabel: taxSystem.label,
+
+    trafficPerDay,
+    trafficCoversBreakEven,
   };
 }
 

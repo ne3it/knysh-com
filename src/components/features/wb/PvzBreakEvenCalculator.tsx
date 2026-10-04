@@ -7,9 +7,11 @@ import {
   Coins,
   Landmark,
   Percent,
+  Plus,
   RotateCcw,
   Store,
   Timer,
+  Trash2,
   TrendingUp,
   Users,
   Wallet,
@@ -24,10 +26,13 @@ import {
   PVZ_ZONE_CUSTOM_ID,
   PVZ_TAX_SYSTEMS,
   calculatePvzBreakEven,
+  createPvzEmployee,
   formatZonePercent,
   roundMoney,
   toNumber,
   type PvzBreakEvenForm,
+  type PvzEmployee,
+  type PvzEmployeeValues,
   type PvzTaxId,
 } from '@/lib/services/pvzBreakEven';
 import type { Feature } from '@/types/section';
@@ -174,6 +179,30 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
     setForm((prev) => ({ ...prev, tax_system: value }));
   };
 
+  /** Правка одного поля конкретной строки персонала */
+  const updateEmployee = (id: string, field: keyof PvzEmployeeValues, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      employees: prev.employees.map((employee) =>
+        employee.id === id ? { ...employee, [field]: value } : employee
+      ),
+    }));
+  };
+
+  /** Добавление новой строки сотрудника в конец списка */
+  const addEmployee = () => {
+    setForm((prev) => ({ ...prev, employees: [...prev.employees, createPvzEmployee()] }));
+  };
+
+  /** Удаление строки; последний сотрудник не удаляется, чтобы остаться минимум один */
+  const removeEmployee = (id: string) => {
+    setForm((prev) =>
+      prev.employees.length <= 1
+        ? prev
+        : { ...prev, employees: prev.employees.filter((employee) => employee.id !== id) }
+    );
+  };
+
   const result = useMemo(() => calculatePvzBreakEven(form, badMonth), [form, badMonth]);
 
   const isCustomZone = form.zone === PVZ_ZONE_CUSTOM_ID;
@@ -283,14 +312,6 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                     step="1"
                   />
                   <NumberField
-                    id="pvz-staff"
-                    label="ФОТ сотрудников в месяц (Зарплата 2-х менеджеров + налоги)"
-                    value={form.staff}
-                    onChange={updateText('staff')}
-                    unit="BYN"
-                    step="1"
-                  />
-                  <NumberField
                     id="pvz-utilities"
                     label="Коммуналка, интернет и охрана точки в месяц"
                     value={form.utilities}
@@ -307,6 +328,15 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                     step="0.5"
                     hint={`${PVZ_CONFIG.DAYS_IN_MONTH} дней в расчётном месяце`}
                   />
+                  <NumberField
+                    id="pvz-traffic"
+                    label="Ожидаемый поток клиентов, чел./день"
+                    value={form.traffic}
+                    onChange={updateText('traffic')}
+                    unit="чел/день"
+                    step="1"
+                    hint={`для безубыточности нужно минимум ${result.clientsPerDay} чел/день`}
+                  />
                   <div className="md:col-span-2">
                     <NumberField
                       id="pvz-turnover"
@@ -320,7 +350,146 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                   </div>
                 </div>
 
-                {/* ═══ Налоговый модуль РБ для ИП ═══ */}
+                {/* ═══ Динамический блок персонала (по аналогии со спецификацией ТТН-1) ═══ */}
+                <div className="rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/5 p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Users className="w-4 h-4 text-[var(--primary)]" aria-hidden="true" />
+                    <p className="text-sm font-semibold text-neutral-900">
+                      Сотрудники / Менеджеры ПВЗ
+                    </p>
+                  </div>
+                  <p className="text-[11px] leading-tight text-neutral-400 mb-3">
+                    Оклады суммируются автоматически. Сверху начисляются взносы в ФСЗН{' '}
+                    {PVZ_CONFIG.FSZN_EMPLOYEE_RATE}% и Белгосстрах {PVZ_CONFIG.BGS_EMPLOYEE_RATE}% — итоговый ФОТ
+                    идёт в постоянные расходы.
+                  </p>
+
+                  {/* Подписи граф — скрыты на узких экранах */}
+                  <div className="hidden lg:grid grid-cols-12 gap-2 px-1 text-xs font-medium text-neutral-500">
+                    <span className="col-span-7">Должность / Имя сотрудника</span>
+                    <span className="col-span-4">Оклад за месяц на руки</span>
+                    <span className="col-span-1" />
+                  </div>
+
+                  <div className="space-y-3 mt-2">
+                    {form.employees.map((employee: PvzEmployee, index: number) => {
+                      const isOnlyRow = form.employees.length <= 1;
+
+                      return (
+                        <div
+                          key={employee.id}
+                          className="rounded-lg border border-neutral-200 bg-white p-3"
+                        >
+                          <div className="grid grid-cols-2 lg:grid-cols-12 gap-2 items-end">
+                            <div className="col-span-2 lg:col-span-7">
+                              <label
+                                className="block text-xs font-medium text-neutral-600 mb-1 lg:hidden"
+                                htmlFor={`pvz-employee-position-${employee.id}`}
+                              >
+                                Должность / Имя сотрудника
+                              </label>
+                              <input
+                                id={`pvz-employee-position-${employee.id}`}
+                                type="text"
+                                value={employee.position}
+                                onChange={(e) =>
+                                  updateEmployee(employee.id, 'position', e.target.value)
+                                }
+                                onInput={(e) =>
+                                  updateEmployee(employee.id, 'position', e.currentTarget.value)
+                                }
+                                className={inputClass}
+                                placeholder="Например: Менеджер смены 1"
+                              />
+                            </div>
+
+                            <div className="lg:col-span-4">
+                              <label
+                                className="block text-xs font-medium text-neutral-600 mb-1 lg:hidden"
+                                htmlFor={`pvz-employee-salary-${employee.id}`}
+                              >
+                                Оклад / Зарплата за месяц на руки, BYN
+                              </label>
+                              <div className="flex gap-2">
+                                <input
+                                  id={`pvz-employee-salary-${employee.id}`}
+                                  type="number"
+                                  step="1"
+                                  min="0"
+                                  inputMode="numeric"
+                                  value={employee.salary}
+                                  onChange={(e) =>
+                                    updateEmployee(employee.id, 'salary', e.target.value)
+                                  }
+                                  onInput={(e) =>
+                                    updateEmployee(employee.id, 'salary', e.currentTarget.value)
+                                  }
+                                  className={inputClass}
+                                  placeholder="0"
+                                />
+                                <span className={badgeClass}>BYN</span>
+                              </div>
+                            </div>
+
+                            <div className="flex justify-end lg:col-span-1">
+                              <button
+                                type="button"
+                                onClick={() => removeEmployee(employee.id)}
+                                disabled={isOnlyRow}
+                                title={
+                                  isOnlyRow
+                                    ? 'В точке должен остаться хотя бы один сотрудник'
+                                    : 'Удалить сотрудника'
+                                }
+                                aria-label={`Удалить сотрудника ${index + 1}`}
+                                className={cn(
+                                  'flex items-center justify-center w-full px-2 py-2 rounded-lg border transition-colors',
+                                  isOnlyRow
+                                    ? 'border-neutral-200 text-neutral-300 cursor-not-allowed'
+                                    : 'border-neutral-300 text-neutral-500 hover:bg-red-50 hover:border-red-300 hover:text-red-600'
+                                )}
+                              >
+                                <Trash2 className="w-4 h-4" aria-hidden="true" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={addEmployee}
+                    className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-white bg-[#7b1fa2] hover:bg-[#6a1b91] transition-colors"
+                  >
+                    <Plus className="w-4 h-4" aria-hidden="true" />
+                    Добавить сотрудника
+                  </button>
+
+                  {/* Живой расчёт ФОТ по всем строкам */}
+                  <div className="mt-3 pt-3 border-t border-[var(--primary)]/20 flex flex-wrap gap-x-5 gap-y-1 text-xs text-neutral-600">
+                    <span>
+                      Сотрудников: <b className="text-neutral-900">{result.payroll.headcount}</b>
+                    </span>
+                    <span>
+                      Оклады:{' '}
+                      <b className="text-neutral-900">{formatMoney(result.payroll.salariesTotal)} BYN</b>
+                    </span>
+                    <span>
+                      ФСЗН {PVZ_CONFIG.FSZN_EMPLOYEE_RATE}%:{' '}
+                      <b className="text-neutral-900">{formatMoney(result.payroll.fsznTotal)} BYN</b>
+                    </span>
+                    <span>
+                      Белгосстрах {PVZ_CONFIG.BGS_EMPLOYEE_RATE}%:{' '}
+                      <b className="text-neutral-900">{formatMoney(result.payroll.bgsTotal)} BYN</b>
+                    </span>
+                    <span>
+                      Итоговый ФОТ:{' '}
+                      <b className="text-[var(--primary)]">{formatMoney(result.payroll.total)} BYN</b>
+                    </span>
+                  </div>
+                </div>
                 <fieldset className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
                   <legend className="px-1 text-sm font-semibold text-neutral-900">
                     Система налогообложения ИП в РБ
@@ -491,6 +660,29 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                 клиентам.
               </p>
 
+              {/* ═══ Сравнение теории с реальностью: ожидаемый трафик vs точка безубыточности ═══ */}
+              <div
+                className={cn(
+                  'mt-4 rounded-lg border p-3 text-sm font-bold leading-snug',
+                  result.trafficCoversBreakEven
+                    ? 'bg-emerald-50 border-emerald-400 text-emerald-800'
+                    : 'bg-red-100 border-red-400 text-red-800'
+                )}
+              >
+                {result.trafficCoversBreakEven ? (
+                  <>
+                    Ваш прогноз трафика ({result.trafficPerDay} чел/день) покрывает точку безубыточности.
+                    Проект потенциально прибыльный.
+                  </>
+                ) : (
+                  <>
+                    Внимание! Прогноз трафика ({result.trafficPerDay} чел/день) НИЖЕ точки безубыточности.
+                    При таком потоке ПВЗ будет работать в убыток. Найдите локацию с большей проходимостью или
+                    сократите расходы.
+                  </>
+                )}
+              </div>
+
               {/* ═══ Чистый доход селлера после налогов РБ ═══ */}
               <div
                 className={cn(
@@ -558,9 +750,27 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                 sub={`введено ${formatMoney(toNumber(form.rent) || 0)} BYN`}
               />
               <MetricRow
-                label="ФОТ сотрудников (2 менеджера + налоги)"
-                value={`${formatMoney(result.staff)} BYN`}
-                sub={`введено ${formatMoney(toNumber(form.staff) || 0)} BYN`}
+                label="Оклады сотрудников (на руки)"
+                value={`${formatMoney(result.payroll.salariesTotal)} BYN`}
+                sub={`${result.payroll.headcount} сотрудник(ов) в штате`}
+              />
+              <MetricRow
+                label={`Взносы в ФСЗН ${PVZ_CONFIG.FSZN_EMPLOYEE_RATE}%`}
+                value={`${formatMoney(result.payroll.fsznTotal)} BYN`}
+                sub={`${formatMoney(result.payroll.salariesTotal)} × ${PVZ_CONFIG.FSZN_EMPLOYEE_RATE}%`}
+                tone="muted"
+              />
+              <MetricRow
+                label={`Взносы в Белгосстрах ${PVZ_CONFIG.BGS_EMPLOYEE_RATE}%`}
+                value={`${formatMoney(result.payroll.bgsTotal)} BYN`}
+                sub={`${formatMoney(result.payroll.salariesTotal)} × ${PVZ_CONFIG.BGS_EMPLOYEE_RATE}%`}
+                tone="muted"
+              />
+              <MetricRow
+                label="Итого ФОТ с взносами"
+                value={`${formatMoney(result.payroll.total)} BYN`}
+                sub="оклады + ФСЗН + Белгосстрах"
+                tone="accent"
               />
               <MetricRow
                 label="Коммуналка, интернет и охрана"
@@ -635,8 +845,10 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                 <li className="flex gap-2">
                   <span className="font-semibold text-neutral-900 tabular-nums">1.</span>
                   <span>
-                    Постоянные расходы = аренда {formatMoney(result.rent)} + ФОТ {formatMoney(result.staff)} +
-                    коммуналка {formatMoney(result.utilities)}
+                    Постоянные расходы = аренда {formatMoney(result.rent)} + ФОТ{' '}
+                    {formatMoney(result.payroll.total)} (оклады {formatMoney(result.payroll.salariesTotal)} + ФСЗН{' '}
+                    {formatMoney(result.payroll.fsznTotal)} + Белгосстрах{' '}
+                    {formatMoney(result.payroll.bgsTotal)}) + коммуналка {formatMoney(result.utilities)}
                     {isBadMonth ? ` + штрафы ${formatMoney(result.finesTotal)}` : ''} ={' '}
                     <strong className="text-neutral-900">{formatMoney(result.fixedExpenses)} BYN</strong>
                   </span>
