@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { AlertTriangle, Percent, RotateCcw, ShieldCheck, Tag, TrendingDown, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
 import { useLinkedForm, SPLIT_LINKS } from '@/lib/hooks/useLinkedForm';
+import { SHARED_KEYS, useSharedEconomics } from '@/lib/store/sharedEconomicsStore';
 import type { Feature } from '@/types/section';
 
 export interface SplitCategory {
@@ -216,8 +217,49 @@ const TONE_MESSAGES: Record<StatusTone, (profit: number) => string> = {
     `УБЫТОК! Акция загоняет вас в минус на ${format(Math.abs(profit))} BYN! Немедленно исключите этот товар из акции во избежание слива бюджета!`,
 };
 
+/**
+ * Мост между компактным справочником товаров панели «СКВОЗНЫЕ ПЕРЕМЕННЫЕ»
+ * (Одежда, Обувь, Электроника, Хозтовары, ПВЗ) и подробным справочником
+ * категорий WB с комиссиями. Значение «ПВЗ» — это услуга пункта выдачи,
+ * товарной категории у неё нет, поэтому она ничего не меняет.
+ */
+const SPLIT_CATEGORY_BY_PRODUCT: Record<string, string> = {
+  clothes: 'clothes_top',
+  shoes: 'shoes',
+  electronics: 'smartphones',
+  household: 'household_chemistry',
+};
+
+const PRODUCT_BY_SPLIT_CATEGORY: Record<string, string> = Object.entries(
+  SPLIT_CATEGORY_BY_PRODUCT
+).reduce<Record<string, string>>((acc, [product, category]) => {
+  acc[category] = product;
+  return acc;
+}, {});
+
 export default function SplitCalculator({ feature }: { feature: Feature }) {
   const { form, setForm } = useLinkedForm<FormState>(DEFAULT_FORM, SPLIT_LINKS);
+  const productCategory = useSharedEconomics((state) => state.values[SHARED_KEYS.productCategory] ?? '');
+  const setSharedValue = useSharedEconomics((state) => state.setValue);
+
+  // Панель → форма: выбор товара в панели подставляет свою категорию WB с комиссией
+  useEffect(() => {
+    const category = SPLIT_CATEGORY_BY_PRODUCT[productCategory];
+    if (!category) return;
+    setForm((prev) => (prev.category === category ? prev : { ...prev, category }));
+  }, [productCategory, setForm]);
+
+  // Форма → панель: выбор категории в форме отражается в справочнике товаров
+  const lastSyncedCategory = useRef(form.category);
+  useEffect(() => {
+    const product = PRODUCT_BY_SPLIT_CATEGORY[form.category];
+    if (!product || productCategory === product || lastSyncedCategory.current === form.category) {
+      lastSyncedCategory.current = form.category;
+      return;
+    }
+    lastSyncedCategory.current = form.category;
+    setSharedValue(SHARED_KEYS.productCategory, product);
+  }, [form.category, productCategory, setSharedValue]);
 
   const updateField = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));

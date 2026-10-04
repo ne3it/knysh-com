@@ -12,9 +12,12 @@ import { SHARED_KEYS, useSharedEconomics } from '@/lib/store/sharedEconomicsStor
  *
  * Как это работает:
  *  - обычные поля живут в локальном состоянии компонента;
- *  - поля, объявленные в `links`, читаются из общего стора (sharedEconomicsStore);
- *  - любое изменение общего поля сразу пишется в стор, поэтому остальные вкладки блока
- *    пересчитываются мгновенно, без ручного переноса данных;
+ *  - поля, объявленные в `links`, читаются из общего стора (sharedEconomicsStore),
+ *    то есть из панели «↔ СКВОЗНЫЕ ПЕРЕМЕННЫЕ»;
+ *  - правка связанного поля сразу пишется в стор, поэтому остальные вкладки блока
+ *    пересчитываются мгновенно, без ручного переноса данных (связь двусторонняя);
+ *  - публикуются только реально изменившиеся поля, иначе первое же нажатие в форме
+ *    заливало бы панель локальными дефолтами инструмента;
  *  - `reset()` очищает и локальные поля, и связанные общие переменные.
  *
  * links объявляется константой модуля, чтобы ссылка была стабильной между рендерами.
@@ -50,16 +53,24 @@ export function useLinkedForm<T extends object>(
   const setSharedValues = useSharedEconomics((state) => state.setValues);
   const clearShared = useSharedEconomics((state) => state.clearValues);
 
-  /** Слить связанные поля формы в общий стор одним вызовом */
+  /**
+   * Слить связанные поля формы в общий стор одним вызовом.
+   *
+   * Публикуются только реально изменившиеся поля: иначе первое же нажатие в форме
+   * заливало бы панель «↔ СКВОЗНЫЕ ПЕРЕМЕННЫЕ» локальными дефолтами инструмента
+   * (пустыми габаритами, своей партией и т.п.), и правка панели тут же терялась бы.
+   */
   const publishLinked = useCallback(
-    (next: T) => {
+    (previous: T, next: T) => {
       const patch: Record<string, string> = {};
       (Object.keys(links) as Array<keyof T & string>).forEach((field) => {
         const sharedKey = links[field];
         if (!sharedKey) return;
-        const value = (next as Record<string, unknown>)[field];
-        if (value === undefined || value === null) return;
-        patch[sharedKey] = String(value);
+        const before = (previous as Record<string, unknown>)[field];
+        const after = (next as Record<string, unknown>)[field];
+        if (after === undefined || after === null) return;
+        if (Object.is(before, after)) return;
+        patch[sharedKey] = String(after);
       });
       if (Object.keys(patch).length > 0) setSharedValues(patch);
     },
@@ -68,10 +79,11 @@ export function useLinkedForm<T extends object>(
 
   const setForm = useCallback(
     (next: T | ((prev: T) => T)) => {
-      const resolved = typeof next === 'function' ? (next as (prev: T) => T)(localRef.current) : next;
+      const previous = localRef.current;
+      const resolved = typeof next === 'function' ? (next as (prev: T) => T)(previous) : next;
       localRef.current = resolved;
       setLocal(resolved);
-      publishLinked(resolved);
+      publishLinked(previous, resolved);
     },
     [publishLinked]
   );
@@ -135,6 +147,23 @@ export const SPLIT_LINKS = {
   cost: SHARED_KEYS.cost,
   currentPrice: SHARED_KEYS.retailPrice,
   spp: SHARED_KEYS.spp,
+} as const;
+
+/**
+ * Калькулятор окупаемости ПВЗ: поток клиентов — это контекстный 4-й параметр
+ * панели в блоке «Аналитика ПВЗ и Логистика», поэтому трафик сквозной.
+ */
+export const PVZ_LINKS = {
+  traffic: SHARED_KEYS.traffic,
+} as const;
+
+/**
+ * Планировщик старта: закупочная цена и объём партии — те же глобальные параметры,
+ * что и в панели «СКВОЗНЫЕ ПЕРЕМЕННЫЕ» (себестоимость и количество).
+ */
+export const PLANNER_LINKS = {
+  purchasePrice: SHARED_KEYS.cost,
+  batchVolume: SHARED_KEYS.batchVolume,
 } as const;
 
 export const PRICE_CONTROL_LINKS = {

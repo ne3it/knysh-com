@@ -2,22 +2,31 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 /**
- * Сквозная экономика WB (РБ).
+ * Сквозные переменные WB (РБ).
  *
- * Ключевая идея рефакторинга: калькуляторы собраны в 5 бизнес-блоков, внутри блока
- * инструменты переключаются горизонтальными вкладками. Чтобы при переключении вкладок
- * поля не сбрасывались, а экономика пересчитывалась СКВОЗНЫМ образом, общие переменные
- * вынесены в отдельное персистентное хранилище:
+ * Калькуляторы собраны в 5 бизнес-блоков, внутри блока инструменты переключаются
+ * горизонтальными вкладками. Чтобы при переключении вкладок поля не сбрасывались,
+ * а экономика пересчитывалась сквозным образом, общие переменные вынесены в
+ * отдельное персистентное хранилище:
  *
- *   себестоимость · габариты · вес · партия · цена · комиссия · категория · реквизиты
+ *   товар · себестоимость · количество партии · цена · комиссия · категория · габариты · вес
  *
  * Инструмент объявляет свои поля через `useLinkedForm` (см. src/lib/hooks/useLinkedForm.ts):
- * значения общих полей читаются из этого стора, а любое изменение сразу пишется туда же,
- * поэтому все вкладки одного блока всегда считают от одних и тех же чисел.
- * Сюда же симулятор «Быстрый Старт» переносит результат обучения — реальные
- * калькуляторы открываются уже с введёнными новичком числами.
+ * значения общих полей читаются из этого стора, а правка поля сразу пишется туда же,
+ * поэтому все вкладки блока считают от одних и тех же чисел.
  *
- * Все денежные значения — строго BYN.
+ * Панель «↔ СКВОЗНЫЕ ПЕРЕМЕННЫЕ» (src/components/layout/SharedVariablesPanel.tsx)
+ * показывает ровно 4 параметра, которые подставляются во все формы проекта:
+ *
+ *   1) Товар       — справочник категорий (select, влияет на комиссию WB);
+ *   2) Себестоимость — BYN за 1 единицу;
+ *   3) Количество   — объём партии, шт;
+ *   4) контекстный параметр, который зависит от открытого блока:
+ *        • товарные блоки (Планировщик старта, Маркировка, Налоги) → «Выкуп», %;
+ *        • блок «Аналитика ПВЗ и Логистика»                     → «Трафик», чел/день.
+ *
+ * Связь двусторонняя: правка панели уходит во все инструменты, а правка того же поля
+ * в форме обновляет панель. Все денежные значения — строго BYN.
  */
 export interface SharedEconomicsState {
   values: Record<string, string>;
@@ -47,6 +56,10 @@ export const SHARED_KEYS = {
   batchVolume: 'batchVolume',
   /** Процент выкупа, % */
   buyoutRate: 'buyoutRate',
+  /** Товар панели: id из PRODUCT_CATEGORIES (category — справочник Постановления № 713) */
+  productCategory: 'productCategory',
+  /** Поток клиентов ПВЗ, чел/день */
+  traffic: 'traffic',
   /** Транзит РБ → РФ, BYN */
   transit: 'transit',
   /** Итог взносов ФСЗН + Белгосстрах за период, BYN (публикует вкладка «Расчет ФСЗН») */
@@ -72,14 +85,103 @@ export const SHARED_KEYS = {
 
 export type SharedKey = (typeof SHARED_KEYS)[keyof typeof SHARED_KEYS];
 
-/** Порядок полей в сводке «сквозных переменных» над вкладками */
-export const SHARED_SUMMARY_FIELDS: Array<{ key: SharedKey; label: string; unit: string }> = [
-  { key: SHARED_KEYS.cost, label: 'Себестоимость', unit: 'BYN' },
-  { key: SHARED_KEYS.retailPrice, label: 'Цена продажи', unit: 'BYN' },
-  { key: SHARED_KEYS.length, label: 'Габариты', unit: 'см' },
-  { key: SHARED_KEYS.weight, label: 'Вес', unit: 'г' },
-  { key: SHARED_KEYS.batchVolume, label: 'Партия', unit: 'шт' },
+/**
+ * Базовый справочник товаров панели.
+ * Порядок вывода в select фиксирован: id не меняются, на них завязаны
+ * отображения категории в калькуляторе акций и подсказки.
+ */
+export interface ProductCategory {
+  id: string;
+  label: string;
+}
+
+export const PRODUCT_CATEGORIES: ProductCategory[] = [
+  { id: 'clothes', label: 'Одежда' },
+  { id: 'shoes', label: 'Обувь' },
+  { id: 'electronics', label: 'Электроника' },
+  { id: 'household', label: 'Хозтовары' },
+  { id: 'pvz', label: 'ПВЗ' },
 ];
+
+export const DEFAULT_PRODUCT_CATEGORY_ID = PRODUCT_CATEGORIES[0].id;
+
+/** Описание числового поля панели: подпись, единица, шаг и дефолт */
+export interface GlobalFieldMeta {
+  key: SharedKey;
+  label: string;
+  unit: string;
+  step: string;
+  min: string;
+  fallback: string;
+}
+
+/** 2-е и 3-е поля панели — они одинаковы во всех блоках */
+export const GLOBAL_COST_FIELD: GlobalFieldMeta = {
+  key: SHARED_KEYS.cost,
+  label: 'Себестоимость',
+  unit: 'BYN',
+  step: '0.01',
+  min: '0',
+  fallback: '25',
+};
+
+export const GLOBAL_QTY_FIELD: GlobalFieldMeta = {
+  key: SHARED_KEYS.batchVolume,
+  label: 'Количество',
+  unit: 'шт',
+  step: '1',
+  min: '1',
+  fallback: '300',
+};
+
+/**
+ * Контекст панели: 4-е поле перестраивается по открытому блоку.
+ * Товарные блоки торгуют единицей товара — там важен процент выкупа,
+ * блок ПВЗ считает окупаемость точки — там важен поток клиентов.
+ */
+export type GlobalContextMode = 'product' | 'pvz';
+
+export const GLOBAL_CONTEXT_FIELDS: Record<GlobalContextMode, GlobalFieldMeta> = {
+  product: {
+    key: SHARED_KEYS.buyoutRate,
+    label: 'Выкуп',
+    unit: '%',
+    step: '1',
+    min: '1',
+    fallback: '30',
+  },
+  pvz: {
+    key: SHARED_KEYS.traffic,
+    label: 'Трафик',
+    unit: 'чел/день',
+    step: '1',
+    min: '0',
+    fallback: '80',
+  },
+};
+
+/** Блок «Аналитика ПВЗ и Логистика» — единственный, где контекст = ПВЗ */
+export const PVZ_BLOCK_ID = 'pvz-logistics';
+
+/** Контекст панели по id открытого блока (все прочие блоки — товарные) */
+export function getGlobalContextMode(blockId?: string | null): GlobalContextMode {
+  return blockId === PVZ_BLOCK_ID ? 'pvz' : 'product';
+}
+
+/**
+ * Санитайзер глобальных инпутов панели: оставляет только цифры и одну точку
+ * (запятая превращается в точку). Буквы, «e», минус и мусор не попадают в стор.
+ *
+ * Защита двухуровневая: инпуты панели имеют `type="number"` (браузер сам не пускает
+ * буквы) и проходят через этот санитайзер при записи, а любое чтение значения —
+ * в сервисах и компонентах — идёт через `parseFloat(value) || 0`, поэтому пустое
+ * поле считается нулём и не ломает расчёт.
+ */
+export function sanitizeSharedInput(raw: string): string {
+  const cleaned = String(raw ?? '').replace(/,/g, '.').replace(/[^\d.]/g, '');
+  const [head, ...tail] = cleaned.split('.');
+  return tail.length > 0 ? `${head}.${tail.join('')}` : head;
+}
 
 export const useSharedEconomics = create<SharedEconomicsState>()(
   persist(
@@ -102,7 +204,6 @@ export const useSharedEconomics = create<SharedEconomicsState>()(
     {
       name: 'knysh-shared-economics',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ values: state.values }),
     }
   )
 );

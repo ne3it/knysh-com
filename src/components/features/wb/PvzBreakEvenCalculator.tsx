@@ -18,6 +18,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLinkedForm, PVZ_LINKS } from '@/lib/hooks/useLinkedForm';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
 import {
   DEFAULT_FINE_SELECTION,
@@ -176,7 +177,9 @@ function NumberField({ id, label, value, onChange, unit, hint, step = '0.01' }: 
 }
 
 export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }) {
-  const [form, setForm] = useState<PvzBreakEvenForm>(DEFAULT_PVZ_FORM);
+  // Поток клиентов — контекстный 4-й параметр панели в блоке «Аналитика ПВЗ и Логистика»,
+  // поэтому он сквозной: правка панели и правка здесь обновляют одно и то же число.
+  const { form, setForm } = useLinkedForm<PvzBreakEvenForm>(DEFAULT_PVZ_FORM, PVZ_LINKS);
   /** Отметки чекбоксов панели штрафов WB: id штрафа → выбран ли */
   const [fineSelection, setFineSelection] = useState<PvzFineSelection>(DEFAULT_FINE_SELECTION);
   /** Сумма кастомного штрафа, вводится вручную и учитывается только вместе с его чекбоксом */
@@ -411,7 +414,7 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                     onChange={updateText('traffic')}
                     unit="чел/день"
                     step="1"
-                    hint={`для безубыточности нужно минимум ${result.clientsPerDay} чел/день`}
+                    hint={`для безубыточности нужно минимум ${result.clientsPerDay} чел/день · ↔ сквозной параметр «Трафик» панели «СКВОЗНЫЕ ПЕРЕМЕННЫЕ»`}
                   />
                 </div>
 

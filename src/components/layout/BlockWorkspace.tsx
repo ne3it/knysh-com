@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Layers, Link2, RotateCcw } from 'lucide-react';
+import { Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getActiveTab, getBlock, getIconComponent } from '@/config/features';
 import { useActiveTabs } from '@/lib/store/sectionStore';
-import { SHARED_SUMMARY_FIELDS, SHARED_KEYS, useSharedEconomics } from '@/lib/store/sharedEconomicsStore';
 import type { ToolBlock } from '@/types/section';
 import { FeatureLoader } from './SectionContent';
+import { SharedVariablesPanel } from './SharedVariablesPanel';
 
 interface BlockWorkspaceProps {
   sectionId: string;
@@ -19,8 +19,9 @@ interface BlockWorkspaceProps {
  * Страница одного бизнес-блока.
  *
  *  - шапка блока с уникальной иконкой;
- *  - полоса «сквозных переменных» — общая экономика блока (себестоимость, цена,
- *    габариты, вес, партия), которая живёт в общем сторе;
+ *  - панель «↔ СКВОЗНЫЕ ПЕРЕМЕННЫЕ» — 4 глобальных параметра блока (товар,
+ *    себестоимость, количество и контекстный параметр: выкуп в товарных блоках,
+ *    трафик в блоке ПВЗ), которые живут в общем сторе;
  *  - горизонтальные фиолетовые вкладки с инструментами блока.
  *
  * Вкладки монтируются один раз и дальше остаются в DOM (неактивные скрыты атрибутом hidden),
@@ -78,7 +79,7 @@ function BlockView({
   return (
     <div className="animate-fade-in space-y-4">
       <BlockHeader block={block} />
-      {!isSimulator && <SharedEconomicsBar />}
+      {!isSimulator && <SharedVariablesPanel blockId={block.id} />}
       <ToolTabs block={block} activeTabId={activeTab.id} onTabChange={onTabChange} />
 
       {block.tabs.map((tab) => (
@@ -150,51 +151,6 @@ function BlockHeader({ block }: { block: ToolBlock }) {
         </span>
       )}
     </header>
-  );
-}
-
-/**
- * Полоса общих переменных. Значения берутся из общего стора, поэтому видно,
- * что именно перейдёт в следующую вкладку и что расчёт идёт в BYN.
- */
-function SharedEconomicsBar() {
-  const values = useSharedEconomics((state) => state.values);
-  const resetShared = useSharedEconomics((state) => state.resetShared);
-
-  const filled = SHARED_SUMMARY_FIELDS.filter((field) => (values[field.key] ?? '').trim() !== '');
-  if (filled.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--primary)]/25 bg-[var(--primary)]/5 px-4 py-3">
-      <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--primary)]">
-        <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
-        Сквозные переменные
-      </span>
-      {filled.map((field) => (
-        <span
-          key={field.key}
-          className="rounded-lg bg-white px-2.5 py-1 text-xs text-neutral-700 shadow-sm"
-        >
-          {field.label}:{' '}
-          <strong className="tabular-nums text-neutral-900">
-            {field.key === SHARED_KEYS.length
-              ? `${values[SHARED_KEYS.length]}×${values[SHARED_KEYS.width]}×${
-                  values[SHARED_KEYS.height]
-                } ${field.unit}`
-              : `${values[field.key]}${field.unit ? ` ${field.unit}` : ''}`}
-          </strong>
-        </span>
-      ))}
-      <button
-        type="button"
-        onClick={resetShared}
-        title="Сбросить общие переменные блока"
-        className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 py-1 text-xs text-neutral-600 transition-colors hover:bg-neutral-50"
-      >
-        <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-        Сбросить
-      </button>
-    </div>
   );
 }
 

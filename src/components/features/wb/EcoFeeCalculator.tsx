@@ -240,6 +240,10 @@ export default function EcoFeeCalculator({ feature }: { feature: Feature }) {
                     />
                     <span className={badgeClass}>шт.</span>
                   </div>
+                  <p className="text-[11px] leading-tight text-[#7b1fa2] mt-1">
+                    ↔ Сквозной параметр «Количество» из панели «СКВОЗНЫЕ ПЕРЕМЕННЫЕ»: правка там
+                    мгновенно меняет расчёт экосбора.
+                  </p>
                 </div>
               </div>
 

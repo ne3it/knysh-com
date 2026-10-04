@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Download,
   ChevronLeft,
@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
+import { useLinkedForm, PLANNER_LINKS } from '@/lib/hooks/useLinkedForm';
+import { SHARED_KEYS, useSharedEconomics } from '@/lib/store/sharedEconomicsStore';
 import { BudgetDonut } from './StartupPlannerChart';
 import type { Feature } from '@/types/section';
 import { jsPDF } from 'jspdf';
@@ -289,10 +291,56 @@ function registerPdfFont(doc: jsPDF) {
   return doc;
 }
 
+/**
+ * Мост между компактным справочником товаров панели «СКВОЗНЫЕ ПЕРЕМЕННЫЕ»
+ * (Одежда, Обувь, Электроника, Хозтовары, ПВЗ) и подробным справочником
+ * планировщика с сертификацией и маркировкой.
+ */
+const PLANNER_CATEGORY_BY_PRODUCT: Record<string, string> = {
+  clothes: 'cloth_marked',
+  shoes: 'shoes_all',
+  electronics: 'gadgets',
+  household: 'household_chem',
+};
+
+const PRODUCT_BY_PLANNER_GROUP: Record<string, string> = {
+  'Одежда и текстиль': 'clothes',
+  'Электроника и техника': 'electronics',
+  'Дом, кухня и ремонт': 'household',
+};
+
+/** Категория планировщика → товар панели: обувь внутри своей группы, остальное — по группе */
+function resolvePlannerProduct(categoryId: string): string | undefined {
+  if (categoryId === 'shoes_all') return 'shoes';
+  return PRODUCT_BY_PLANNER_GROUP[getCategoryMeta(categoryId).group];
+}
+
 export default function StartupPlanner({ feature }: { feature: Feature }) {
-  const [form, setForm] = useState<PlannerForm>(DEFAULT_FORM);
+  // Закупочная цена и объём партии сквозные: правка панели и правка здесь — одно число.
+  const { form, setForm } = useLinkedForm<PlannerForm>(DEFAULT_FORM, PLANNER_LINKS);
   const [currentStep, setCurrentStep] = useState(1);
   const [budget, setBudget] = useState<BudgetBreakdown | null>(null);
+  const productCategory = useSharedEconomics((state) => state.values[SHARED_KEYS.productCategory] ?? '');
+  const setSharedValue = useSharedEconomics((state) => state.setValue);
+
+  // Панель → планировщик: товар из панели подставляет свою категорию
+  useEffect(() => {
+    const category = PLANNER_CATEGORY_BY_PRODUCT[productCategory];
+    if (!category) return;
+    setForm((prev) => (prev.category === category ? prev : { ...prev, category }));
+  }, [productCategory, setForm]);
+
+  // Планировщик → панель: категория планировщика отражается в справочнике товаров
+  const lastSyncedCategory = useRef(form.category);
+  useEffect(() => {
+    const product = resolvePlannerProduct(form.category);
+    if (!product || productCategory === product || lastSyncedCategory.current === form.category) {
+      lastSyncedCategory.current = form.category;
+      return;
+    }
+    lastSyncedCategory.current = form.category;
+    setSharedValue(SHARED_KEYS.productCategory, product);
+  }, [form.category, productCategory, setSharedValue]);
 
   const updateField = (field: keyof PlannerForm, value: string | Origin | DeliveryMethod | BusinessForm) => {
     setForm((prev) => ({ ...prev, [field]: value }));
