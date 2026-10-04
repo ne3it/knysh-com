@@ -5,9 +5,8 @@
  *  1) FixedExpenses = аренда + ФОТ + коммуналка (+ отмеченные штрафы WB).
  *  2) Минимально необходимый доход ПВЗ для работы в ноль = FixedExpenses.
  *  3) Необходимый оборот выданных заказов (BYN) = FixedExpenses ÷ процент выплат зоны.
- *  4) Оборот в RUB = оборот в BYN × 28 (фиксированный технический курс WB).
- *  5) Количество заказов в месяц = оборот в BYN ÷ средний чек.
- *  6) Минимум клиентов в день = Math.ceil(заказы в месяц ÷ 30).
+ *  4) Количество заказов в месяц = оборот в BYN ÷ средний чек.
+ *  5) Минимум клиентов в день = Math.ceil(заказы в месяц ÷ 30).
  *
  * Налоговый модуль РБ (чистая прибыль селлера):
  *  Чистая_Прибыль = (Валовый_Доход_ПВЗ − Постоянные_Расходы) × (1 − Ставка_Налога / 100).
@@ -36,8 +35,6 @@
  */
 
 export const PVZ_CONFIG = {
-  /** Фиксированный технический курс WB: 1 BYN = ? RUB */
-  RUB_PER_BYN: 28,
   /** Дней в расчётном месяце */
   DAYS_IN_MONTH: 30,
   /** Ежемесячная аренда помещения по умолчанию, BYN */
@@ -454,21 +451,17 @@ export interface PvzBreakEvenResult {
   requiredRevenueByn: number;
   /** Необходимый оборот выданных заказов, BYN */
   requiredTurnoverByn: number;
-  /** Необходимый оборот в RUB по фиксированному курсу WB */
-  requiredTurnoverRub: number;
+  /** Необходимый оборот выданных заказов, BYN */
+  requiredTurnoverByn: number;
   /** Общее количество заказов в месяц */
   ordersPerMonth: number;
   /** Минимальное количество клиентов в день (всегда целое, вверх) */
   clientsPerDay: number;
   /** Выплата ПВЗ за месяц при таком обороте, BYN */
   payoutByn: number;
-  /** Курс, по которому считается оборот в RUB */
-  rubPerByn: number;
 
   /** Ожидаемый оборот при введённом трафике, BYN */
   expectedTurnoverByn: number;
-  /** Ожидаемый оборот в RUB по фиксированному курсу WB */
-  expectedTurnoverRub: number;
   /** Ожидаемое количество заказов в месяц = трафик × дней в месяце */
   expectedOrdersPerMonth: number;
   /** Валовый доход ПВЗ при ожидаемом обороте, BYN */
@@ -523,13 +516,10 @@ export function calculatePvzBreakEven(
   // 3) Необходимый оборот выданных заказов = FixedExpenses ÷ процент выплат зоны
   const requiredTurnoverByn = safeRate > 0 ? roundMoney(requiredRevenueByn / safeRate) : 0;
 
-  // 4) Оборот в RUB по фиксированному техническому курсу WB
-  const requiredTurnoverRub = roundMoney(requiredTurnoverByn * PVZ_CONFIG.RUB_PER_BYN);
-
-  // 5) Общее количество заказов в месяц = оборот в BYN ÷ средний чек
+  // 4) Общее количество заказов в месяц = оборот в BYN ÷ средний чек
   const ordersPerMonth = avgCheck > 0 ? roundTo(requiredTurnoverByn / avgCheck, 2) : 0;
 
-  // 6) Минимальное количество клиентов в день
+  // 5) Минимальное количество клиентов в день
   const clientsPerDay = Math.ceil(ordersPerMonth / PVZ_CONFIG.DAYS_IN_MONTH);
 
   const payoutByn = roundMoney(requiredTurnoverByn * safeRate);
@@ -545,7 +535,6 @@ export function calculatePvzBreakEven(
   const expectedTurnoverByn = roundMoney(
     trafficPerDay * avgCheck * PVZ_CONFIG.DAYS_IN_MONTH
   );
-  const expectedTurnoverRub = roundMoney(expectedTurnoverByn * PVZ_CONFIG.RUB_PER_BYN);
 
   const taxRatePercent = Math.min(100, Math.max(0, toNumber(taxSystem.rate) || 0));
   const grossRevenueByn = roundMoney(expectedTurnoverByn * safeRate);
@@ -573,14 +562,11 @@ export function calculatePvzBreakEven(
 
     requiredRevenueByn,
     requiredTurnoverByn,
-    requiredTurnoverRub,
     ordersPerMonth,
     clientsPerDay: Number.isFinite(clientsPerDay) && clientsPerDay > 0 ? clientsPerDay : 0,
     payoutByn,
-    rubPerByn: PVZ_CONFIG.RUB_PER_BYN,
 
     expectedTurnoverByn,
-    expectedTurnoverRub,
     expectedOrdersPerMonth,
     grossRevenueByn,
     preTaxProfitByn,

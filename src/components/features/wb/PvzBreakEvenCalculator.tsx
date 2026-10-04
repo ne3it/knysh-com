@@ -780,7 +780,7 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                   heroTone.valueSoft
                 )}
               >
-                (~{formatMoney(result.requiredTurnoverRub)} RUB) в месяц
+                {formatMoney(result.requiredTurnoverByn)} BYN в месяц
               </p>
 
               <p className={cn('mt-4 text-base sm:text-lg font-bold leading-snug', heroTone.label)}>
@@ -799,8 +799,7 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                     result.trafficCoversBreakEven ? 'text-emerald-700' : 'text-amber-800'
                   )}
                 >
-                  {formatMoney(result.expectedTurnoverByn)} BYN (~{formatMoney(result.expectedTurnoverRub)} RUB) в
-                  месяц
+                  {formatMoney(result.expectedTurnoverByn)} BYN в месяц
                 </p>
                 <p className="text-[11px] leading-tight text-neutral-500">
                   {result.trafficPerDay} чел/день × средний чек{' '}
@@ -877,7 +876,7 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                   <>
                     Это {format(result.ordersPerMonth, 2)} заказов в месяц при среднем чеке{' '}
                     {formatMoney(toNumber(form.avg_check) || 0)} BYN и ставке выплаты{' '}
-                    {formatZonePercent(result.rate)} (курс WB: 1 BYN = {result.rubPerByn} RUB).
+                    {formatZonePercent(result.rate)}.
                   </>
                 ) : (
                   <>
@@ -1026,26 +1025,19 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                 <li className="flex gap-2">
                   <span className="font-semibold text-neutral-900 tabular-nums">4.</span>
                   <span>
-                    Оборот безубыточности в RUB = {formatMoney(result.requiredTurnoverByn)} × {result.rubPerByn} ={' '}
-                    <strong className="text-neutral-900">{formatMoney(result.requiredTurnoverRub)} RUB</strong>
-                  </span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="font-semibold text-neutral-900 tabular-nums">5.</span>
-                  <span>
-                    Заказы в месяц = оборот ÷ средний чек ={' '}
+                    Общее количество заказов в месяц = оборот ÷ средний чек ={' '}
                     <strong className="text-neutral-900">{format(result.ordersPerMonth, 2)}</strong>
                   </span>
                 </li>
                 <li className="flex gap-2">
-                  <span className="font-semibold text-neutral-900 tabular-nums">6.</span>
+                  <span className="font-semibold text-neutral-900 tabular-nums">5.</span>
                   <span>
                     Клиентов в день = Math.ceil(заказы ÷ {PVZ_CONFIG.DAYS_IN_MONTH}) ={' '}
                     <strong className="text-[var(--primary)]">{result.clientsPerDay}</strong>
                   </span>
                 </li>
                 <li className="flex gap-2">
-                  <span className="font-semibold text-neutral-900 tabular-nums">7.</span>
+                  <span className="font-semibold text-neutral-900 tabular-nums">6.</span>
                   <span>
                     Чистый доход = (валовый доход {formatMoney(result.grossRevenueByn)} − расходы{' '}
                     {formatMoney(result.fixedExpenses)}) × (1 − {format(result.taxRatePercent, 0)}%) ={' '}
