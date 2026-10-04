@@ -349,6 +349,29 @@ export const ActClaimIcon = ({ className = '', style, ...props }: SVGProps<SVGSV
   </svg>
 );
 
+export const PvzBreakEvenIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#7b1fa2"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Pin point (геотека) */}
+    <path d="M12 21.5s7-6.1 7-11.5a7 7 0 1 0-14 0c0 5.4 7 11.5 7 11.5z" />
+    <circle cx="12" cy="10" r="2.6" />
+    {/* Small pickup point building inside the pin head */}
+    <path d="M9.4 12.6V10.8h5.2v1.8" />
+    <path d="M8.7 10.8l3.3-1.9 3.3 1.9" />
+  </svg>
+);
+
 export const MarkingCodeIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"

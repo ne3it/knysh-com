@@ -23,7 +23,7 @@ import {
   Calculator,
   Scan,
 } from 'lucide-react';
-import { BarcodeIcon, PriceControlIcon, StockoutIcon, SEOCleanIcon, StartupPlannerIcon, CargoTruckIcon, TNVEDCheckIcon, SplitCalculatorIcon, EcoFeeIcon, MarkingCodeIcon, FsznBgsIcon, TNVEDValidatorIcon, PvzReturnIcon, ActClaimIcon } from './icons';
+import { BarcodeIcon, PriceControlIcon, StockoutIcon, SEOCleanIcon, StartupPlannerIcon, CargoTruckIcon, TNVEDCheckIcon, SplitCalculatorIcon, EcoFeeIcon, MarkingCodeIcon, FsznBgsIcon, TNVEDValidatorIcon, PvzReturnIcon, PvzBreakEvenIcon, ActClaimIcon } from './icons';
 
 export const ICON_MAP: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
   LayoutDashboard,
@@ -60,6 +60,7 @@ Barcode: BarcodeIcon,
      MarkingCode: MarkingCodeIcon,
       FsznBgs: FsznBgsIcon,
       PvzReturn: PvzReturnIcon,
+      PvzBreakEven: PvzBreakEvenIcon,
       TNVEDValidator: TNVEDValidatorIcon,
       ActClaim: ActClaimIcon,
     };
@@ -195,6 +196,16 @@ const wbPvzReturn: Feature = {
   group: 'main',
 };
 
+const wbPvzBreakEven: Feature = {
+  id: 'pvz-break-even',
+  label: 'Калькулятор ПВЗ WB',
+  icon: 'PvzBreakEven',
+  description:
+    'Окупаемость пункта выдачи заказов WB в РБ: тарифные зоны, обратный расчёт точки безубыточности и симулятор «плохого месяца» с штрафами',
+  componentPath: '@/components/features/wb/PvzBreakEvenCalculator',
+  group: 'main',
+};
+
 const wbActClaim: Feature = {
   id: 'act-claim',
   label: 'Акт расхождения (Претензия)',
@@ -208,7 +219,7 @@ export const WB_FEATURE_GROUPS: FeatureGroup[] = [  {
     id: 'main',
     label: 'Основные',
     defaultOpen: true,
-    features: [wbCalculator, wbSEOClean, wbStockout, wbPriceControl713, wbLabelsGenerator, wbStartupPlanner, wbCargoCalculator, wbTNVEDCheck, wbTNVEDValidator, wbSplitCalculator, wbEcoFeeCalculator, wbMarkingValidator, wbFsznBgs, wbPvzReturn, wbActClaim],
+    features: [wbCalculator, wbSEOClean, wbStockout, wbPriceControl713, wbLabelsGenerator, wbStartupPlanner, wbCargoCalculator, wbTNVEDCheck, wbTNVEDValidator, wbSplitCalculator, wbEcoFeeCalculator, wbMarkingValidator, wbFsznBgs, wbPvzReturn, wbPvzBreakEven, wbActClaim],
   },
 ];
 
