@@ -2,15 +2,23 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Apple,
   ArrowUpRight,
   Banknote,
+  Briefcase,
+  ClipboardList,
+  Droplets,
   FileCheck2,
   Fingerprint,
+  Gavel,
   Globe2,
+  HandCoins,
   Landmark,
+  Layers,
   Leaf,
   Megaphone,
   MonitorSmartphone,
+  Pill,
   ReceiptText,
   RotateCcw,
   Scale,
@@ -20,14 +28,27 @@ import {
   Shirt,
   Ship,
   Store,
+  Tags,
   Timer,
   UserRound,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
 import type { Feature } from '@/types/section';
 
-export type LawCategory = 'clothes' | 'cosmetics' | 'pvz' | 'shoes' | 'npd' | 'general';
+export type LawCategory =
+  | 'clothes'
+  | 'cosmetics'
+  | 'pvz'
+  | 'shoes'
+  | 'npd'
+  | 'general'
+  | 'food'
+  | 'bads'
+  | 'auto'
+  | 'electronics'
+  | 'textile';
 
 export type LawTag = 'all' | LawCategory;
 
@@ -60,16 +81,23 @@ export const CATEGORY_LABELS: Record<LawCategory, string> = {
   shoes: 'Обувь',
   npd: 'Самозанятость (НПД)',
   general: 'Для всех',
+  food: 'Питание',
+  bads: 'БАДы и питание',
+  auto: 'Автотовары',
+  electronics: 'Электроника',
+  textile: 'Текстиль',
 };
 
 export const LAW_TAGS: LawTagOption[] = [
   { id: 'all', label: 'Показать всё' },
   { id: 'clothes', label: 'Я продаю одежду' },
-  { id: 'cosmetics', label: 'Я продаю косметику' },
-  { id: 'pvz', label: 'Я открываю ПВЗ' },
   { id: 'shoes', label: 'Я продаю обувь' },
+  { id: 'cosmetics', label: 'Я продаю косметику' },
+  { id: 'bads', label: 'Я продаю БАДы и питание' },
+  { id: 'auto', label: 'Я продаю автотовары' },
+  { id: 'electronics', label: 'Я продаю электронику' },
   { id: 'npd', label: 'Я самозанятый (НПД)' },
-  { id: 'general', label: 'Общие законы для всех' },
+  { id: 'pvz', label: 'Я открываю ПВЗ' },
 ];
 
 export const LAW_CARDS: LawCardData[] = [
@@ -264,11 +292,136 @@ export const LAW_CARDS: LawCardData[] = [
       url: 'https://pravo.by',
     },
   },
+  {
+    id: 'cm-1124-bads',
+    title: 'Постановление СМ РБ № 1124 — Правила интернет-торговли биологически активными добавками и питанием',
+    categories: ['food', 'bads'],
+    icon: Pill,
+    body: 'Регулирует жесткие ограничения на дистанционную продажу БАДов и специализированного питания в РБ. Продажа допускается только при наличии государственной регистрации (СГР Минздрава РБ) и внесения в единый реестр ЕАЭС. Нарушение правил влечет немедленное изъятие партии и крупные штрафы.',
+    keywords: ['БАД', 'БАДы', 'Минздрав', 'СГР', 'реестр ЕАЭС', 'спортивное питание'],
+    source: {
+      label: 'Постановление № 1124 на Pravo.by — pravo.by',
+      url: 'https://pravo.by',
+    },
+  },
+  {
+    id: 'trts-030-auto-fluids',
+    title: 'Технический регламент ТР ТС 030/2012 — Требования к автомобильным маслам и спецжидкостям',
+    categories: ['auto'],
+    icon: Droplets,
+    body: 'Продажа моторных масел, антифризов и тормозных жидкостей на WB из РБ требует обязательного оформления декларации соответствия по регламенту безопасности смазочных материалов. Продажа контрафакта или продукции без паспорта качества влечет конфискацию.',
+    keywords: ['масло', 'масла', 'антифриз', 'тормозная жидкость', 'смазочные материалы', 'конфискация'],
+    source: {
+      label: 'Регламент ТР ТС 030 на Pravo.by — pravo.by',
+      url: 'https://pravo.by',
+    },
+  },
+  {
+    id: 'trts-004-020-electronics',
+    title:
+      'Технические регламенты ТР ТС 004/2011 и 020/2011 — Безопасность низковольтного оборудования и электромагнитная совместимость',
+    categories: ['electronics'],
+    icon: Zap,
+    body: 'Любая бытовая техника, гаджеты и зарядные устройства, питающиеся от сети или мощных литиевых аккумуляторов, подлежат строгому подтверждению соответствия. Для сложных приборов требуется Сертификат, для мелких аксессуаров — Декларация.',
+    keywords: ['аккумулятор', 'видеорегистратор', 'бытовая техника', 'сертификат', 'декларация соответствия'],
+    source: {
+      label: 'ТР ТС 004 на Pravo.by — pravo.by',
+      url: 'https://pravo.by',
+    },
+  },
+  {
+    id: 'ukaz-4-currency',
+    title:
+      'Указ Президента РБ № 4__ — О мерах по противодействию незаконным валютным операциям и теневому обороту',
+    categories: ['clothes', 'shoes', 'cosmetics', 'food', 'bads', 'auto', 'electronics', 'npd', 'pvz'],
+    icon: HandCoins,
+    body: 'Жесткий указ, регулирующий легальность финансовых потоков интернет-магазинов и селлеров. Запрещает использование подставных счетов, серых схем вывода денег с маркетплейсов и сокрытие реальной выручки в BYN. Контролируется ДФР КГК РБ.',
+    keywords: ['ДФР', 'КГК', 'теневая экономика', 'серые схемы', 'подставные счета'],
+    source: {
+      label: 'Текст Указа на Pravo.by — pravo.by',
+      url: 'https://pravo.by',
+    },
+  },
+  {
+    id: 'gk-article-22',
+    title: 'Гражданский кодекс РБ (Статья 22 — Предпринимательская деятельность граждан)',
+    categories: ['general', 'npd'],
+    icon: Briefcase,
+    body: 'Определяет четкие границы между самозанятостью (НПД) и полноценным бизнесом. Если селлер на НПД начинает системно перепродавать чужие товары, а не производить свои, его деятельность признается незаконной предпринимательской деятельностью с конфискацией 100% дохода.',
+    keywords: ['перепродажа', 'перепродавать', 'Гражданский кодекс', 'конфискация', 'самозанятость'],
+    source: {
+      label: 'Гражданский кодекс на Pravo.by — pravo.by',
+      url: 'https://pravo.by',
+    },
+  },
+  {
+    id: 'pricing-law-713',
+    title: 'Закон РБ «О ценообразовании» и Постановление № 713',
+    categories: ['clothes', 'shoes', 'cosmetics', 'food', 'bads', 'auto', 'electronics'],
+    icon: Tags,
+    body: 'Фундаментальный закон РБ, запрещающий необоснованное повышение цен на регулируемые потребительские товары. Ограничивает норму прибыли импортеров и оптовые надбавки. Любое превышение грозит селлеру штрафом в двукратном размере от суммы завышения.',
+    keywords: ['цена', 'наценка', 'МРЦ', 'регулируемые цены', 'двукратный штраф'],
+    source: {
+      label: 'Закон о ценообразовании на Pravo.by — pravo.by',
+      url: 'https://pravo.by',
+    },
+  },
+  {
+    id: 'mns-16-declarations',
+    title: 'Постановление Министерства по налогам и сборам РБ № 16 — Правила заполнения налоговых деклараций',
+    categories: ['general'],
+    icon: ClipboardList,
+    body: 'Регламентирует точный порядок и сроки подачи налоговой отчетности по УСН и подоходному налогу для ИП и юрлиц. Ошибки в расчете налоговой базы из-за удержаний комиссий WB признаются занижением налога и ведут к штрафам.',
+    keywords: ['УСН', 'налоговая декларация', 'отчетность', 'комиссии WB'],
+    source: {
+      label: 'Постановление МНС № 16 на nalog.gov.by — nalog.gov.by',
+      url: 'https://nalog.gov.by',
+    },
+  },
+  {
+    id: 'trts-017-light-industry',
+    title: 'Технический регламент ТР ТС 017/2011 — Безопасность продукции легкой промышленности',
+    categories: ['clothes', 'shoes', 'textile'],
+    icon: Layers,
+    body: 'Главный закон для продавцов одежды и обуви на WB. Делит одежду на 3 слоя (контакт с кожей). Нательное белье требует дорогостоящей обязательной сертификации, а верхняя одежда — декларирования. Продажа без маркировочных ярлыков запрещена.',
+    keywords: ['легкая промышленность', 'три слоя', 'белье', 'ярлык', 'сертификация'],
+    source: {
+      label: 'ТР ТС 017 на Pravo.by — pravo.by',
+      url: 'https://pravo.by',
+    },
+  },
+  {
+    id: 'trts-021-food',
+    title: 'Технический регламент ТР ТС 021/2011 — Безопасность пищевой продукции',
+    categories: ['food', 'bads'],
+    icon: Apple,
+    body: 'Регулирует продажи бакалеи, сухофруктов, чая и кофе на маркетплейсах. Требует строгого соблюдения условий хранения, наличия деклараций соответствия и маркировки сроков годности на русском/белорусском языке.',
+    keywords: ['бакалея', 'чай', 'кофе', 'сухофрукты', 'срок годности', 'условия хранения'],
+    source: {
+      label: 'ТР ТС 021 на Pravo.by — pravo.by',
+      url: 'https://pravo.by',
+    },
+  },
+  {
+    id: 'uk-article-243-tax-evasion',
+    title: 'Уголовный кодекс РБ (Статья 243 — Уклонение от уплаты налогов)',
+    categories: ['general', 'clothes', 'shoes', 'cosmetics', 'food', 'bads', 'auto', 'electronics', 'npd', 'pvz'],
+    icon: Gavel,
+    body: 'Предупреждает о жесткой ответственности за умышленное сокрытие доходов в крупном и особо крупном размере при ведении интернет-торговли. Обязывает селлеров вести прозрачный учет всех финансовых транзакций маркетплейса в BYN.',
+    keywords: ['Уголовный кодекс', 'уклонение от налогов', 'сокрытие доходов', 'штраф', 'прозрачный учет'],
+    source: {
+      label: 'Уголовный кодекс на Pravo.by — pravo.by',
+      url: 'https://pravo.by',
+    },
+  },
 ];
 
 export const FALLBACK_LAW_TITLE = 'Нужного закона нет в списке?';
 export const FALLBACK_LAW_TEXT =
   'Введите ваш тип товара в наших калькуляторах слева, и система автоматически подберет под него ограничения Постановления № 713, ТН ВЭД и правила маркировки РБ!';
+
+export const EMPTY_RESULT_TEXT =
+  'Законов по вашему специфическому запросу не найдено, но вы можете проверить ограничения ТН ВЭД и Экосбора в наших калькуляторах в меню слева!';
 
 const isLawTag = (value: string | undefined): value is LawTag =>
   !!value && LAW_TAGS.some((tag) => tag.id === value);
@@ -503,11 +656,9 @@ export default function LegalNavigator({ feature }: { feature: Feature }) {
             );
           })}
 
-          {visibleCards.length === 0 && (
-            <div className="md:col-span-2 rounded-xl border border-dashed border-[#7b1fa2]/40 bg-white px-5 py-6 text-center">
-              <p className="text-sm font-medium text-neutral-900">
-                По запросу «{trimmedQuery}» в выбранной нише законов не найдено
-              </p>
+{visibleCards.length === 0 && (
+            <div className="md:col-span-2 rounded-xl border border-dashed border-[#7b1fa2]/40 bg-white px-5 py-6 text-center animate-fade-in">
+              <p className="text-sm font-medium text-neutral-900">{EMPTY_RESULT_TEXT}</p>
               <p className="mt-1 text-xs text-neutral-500">
                 Снимите фильтр-тег, попробуйте другое ключевое слово или воспользуйтесь универсальной карточкой
                 ниже — она доступна при любом фильтре.
