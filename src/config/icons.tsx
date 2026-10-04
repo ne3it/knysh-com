@@ -408,3 +408,33 @@ export const MarkingCodeIcon = ({ className = '', style, ...props }: SVGProps<SV
     <path d="M18 15h0" />
   </svg>
 );
+
+export const LegalScaleIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#7b1fa2"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Stand of the scales: base, pillar and beam */}
+    <path d="M12 4.5v15" />
+    <path d="M7.5 19.5h9" />
+    <path d="M9.5 19.5l2.5-3.2 2.5 3.2" />
+    <path d="M4.5 7.5h15" />
+    <circle cx="12" cy="4.5" r="1.3" fill="#ffffff" />
+    {/* Left pan of the scales */}
+    <path d="M4.5 7.5L2 13.5h5L4.5 7.5z" />
+    {/* Right pan of the scales */}
+    <path d="M19.5 7.5L17 13.5h5l-2.5-6z" />
+    {/* Open book of laws at the base */}
+    <path d="M2.5 16.5c2.6-.9 5.1-.9 7.5.4v5.4c-2.4-1.3-4.9-1.3-7.5-.4v-5.4z" />
+    <path d="M21.5 16.5c-2.6-.9-5.1-.9-7.5.4v5.4c2.4-1.3 4.9-1.3 7.5-.4v-5.4z" />
+  </svg>
+);

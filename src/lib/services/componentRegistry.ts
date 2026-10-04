@@ -70,6 +70,9 @@ export const COMPONENT_REGISTRY: Record<string, FeatureComponent> = {
   '@components/features/wb/DiscrepancyAct': dynamic(() =>
     import('@/components/features/wb/DiscrepancyAct').then(loadDefault)
   ),
+  '@components/features/wb/LegalNavigator': dynamic(() =>
+    import('@/components/features/wb/LegalNavigator').then(loadDefault)
+  ),
 };
 
 /**

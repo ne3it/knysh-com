@@ -23,7 +23,7 @@ import {
   Calculator,
   Scan,
 } from 'lucide-react';
-import { BarcodeIcon, PriceControlIcon, StockoutIcon, SEOCleanIcon, StartupPlannerIcon, CargoTruckIcon, TNVEDCheckIcon, SplitCalculatorIcon, EcoFeeIcon, MarkingCodeIcon, FsznBgsIcon, TNVEDValidatorIcon, PvzReturnIcon, PvzBreakEvenIcon, ActClaimIcon } from './icons';
+import { BarcodeIcon, PriceControlIcon, StockoutIcon, SEOCleanIcon, StartupPlannerIcon, CargoTruckIcon, TNVEDCheckIcon, SplitCalculatorIcon, EcoFeeIcon, MarkingCodeIcon, FsznBgsIcon, TNVEDValidatorIcon, PvzReturnIcon, PvzBreakEvenIcon, ActClaimIcon, LegalScaleIcon } from './icons';
 
 export const ICON_MAP: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
   LayoutDashboard,
@@ -63,6 +63,7 @@ Barcode: BarcodeIcon,
       PvzBreakEven: PvzBreakEvenIcon,
       TNVEDValidator: TNVEDValidatorIcon,
       ActClaim: ActClaimIcon,
+      LegalScale: LegalScaleIcon,
     };
 
 export function getIconComponent(name: string) {
@@ -215,11 +216,21 @@ const wbActClaim: Feature = {
   group: 'main',
 };
 
+const wbLegalNavigator: Feature = {
+  id: 'legal-navigator',
+  label: 'Юридический навигатор',
+  icon: 'LegalScale',
+  description:
+    'Законы РБ для селлера WB и франчайзи ПВЗ: НБРБ, экосбор, платформенная экономика и налоги — с фильтром по вашей нише',
+  componentPath: '@/components/features/wb/LegalNavigator',
+  group: 'main',
+};
+
 export const WB_FEATURE_GROUPS: FeatureGroup[] = [  {
     id: 'main',
     label: 'Основные',
     defaultOpen: true,
-    features: [wbCalculator, wbSEOClean, wbStockout, wbPriceControl713, wbLabelsGenerator, wbStartupPlanner, wbCargoCalculator, wbTNVEDCheck, wbTNVEDValidator, wbSplitCalculator, wbEcoFeeCalculator, wbMarkingValidator, wbFsznBgs, wbPvzReturn, wbPvzBreakEven, wbActClaim],
+    features: [wbCalculator, wbSEOClean, wbStockout, wbPriceControl713, wbLabelsGenerator, wbStartupPlanner, wbCargoCalculator, wbTNVEDCheck, wbTNVEDValidator, wbSplitCalculator, wbEcoFeeCalculator, wbMarkingValidator, wbFsznBgs, wbPvzReturn, wbPvzBreakEven, wbActClaim, wbLegalNavigator],
   },
 ];
 
