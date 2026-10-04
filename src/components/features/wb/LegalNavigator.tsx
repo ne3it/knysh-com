@@ -1,12 +1,24 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Banknote, Landmark, Leaf, Scale, ShieldCheck, Store, Timer } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Banknote,
+  Landmark,
+  Leaf,
+  Scale,
+  Search,
+  ShieldCheck,
+  Shirt,
+  Store,
+  Timer,
+  UserRound,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
 import type { Feature } from '@/types/section';
 
-export type LawCategory = 'clothes' | 'cosmetics' | 'pvz';
+export type LawCategory = 'clothes' | 'cosmetics' | 'pvz' | 'shoes' | 'npd';
 
 export type LawTag = 'all' | LawCategory;
 
@@ -15,12 +27,18 @@ export interface LawTagOption {
   label: string;
 }
 
+export interface LawSource {
+  label: string;
+  url: string;
+}
+
 export interface LawCardData {
   id: string;
   title: string;
   categories: LawCategory[];
   body: string;
   note?: string;
+  source: LawSource;
   icon: React.ComponentType<{ className?: string }>;
 }
 
@@ -28,6 +46,8 @@ export const CATEGORY_LABELS: Record<LawCategory, string> = {
   clothes: 'Одежда',
   cosmetics: 'Косметика',
   pvz: 'ПВЗ',
+  shoes: 'Обувь',
+  npd: 'Самозанятость (НПД)',
 };
 
 export const LAW_TAGS: LawTagOption[] = [
@@ -35,6 +55,8 @@ export const LAW_TAGS: LawTagOption[] = [
   { id: 'clothes', label: 'Я продаю одежду' },
   { id: 'cosmetics', label: 'Я продаю косметику' },
   { id: 'pvz', label: 'Я открываю ПВЗ' },
+  { id: 'shoes', label: 'Я продаю обувь' },
+  { id: 'npd', label: 'Я самозанятый (НПД)' },
 ];
 
 export const LAW_CARDS: LawCardData[] = [
@@ -45,6 +67,10 @@ export const LAW_CARDS: LawCardData[] = [
     icon: Banknote,
     body: 'Выручка от продаж на WB изначально фиксируется маркетплейсом, но для налоговой отчетности в РБ она пересчитывается в белорусские рубли строго по официальному курсу Национального банка РБ (НБРБ) на дату отчета о реализации.',
     note: 'Применяется во вкладках «Мега-калькулятор» и «КУДиР».',
+    source: {
+      label: 'Официальный сайт Национального банка РБ — nbrb.by',
+      url: 'https://nbrb.by',
+    },
   },
   {
     id: 'eco-waste-law',
@@ -53,6 +79,10 @@ export const LAW_CARDS: LawCardData[] = [
     icon: Leaf,
     body: 'Контролируется ГУ «Оператор вторичных материальных ресурсов». Селлеры WB в РБ становятся импортерами упаковки (зип-локи, коробки, стрейч). Вы обязаны ежеквартально/ежегодно подавать отчет и платить экосбор за каждый килограмм пластика и картона.',
     note: 'Применяется во вкладке «Экосбор РБ».',
+    source: {
+      label: 'ГУ «Оператор вторичных материальных ресурсов» — vtoroperator.by',
+      url: 'https://vtoroperator.by',
+    },
   },
   {
     id: 'platform-economy',
@@ -61,6 +91,10 @@ export const LAW_CARDS: LawCardData[] = [
     icon: Timer,
     body: 'С 1 октября закон запрещает маркетплейсам изменять тарифы зон или вводить новые штрафы для ПВЗ внезапно. Обязателен срок уведомления франчайзи за 45 дней.',
     note: 'Используйте этот запас времени, чтобы вовремя пересчитать модель расходов на нашем сайте.',
+    source: {
+      label: 'Национальный правовой Интернет-портал Республики Беларусь — pravo.by',
+      url: 'https://pravo.by',
+    },
   },
   {
     id: 'tax-code-franchise',
@@ -68,6 +102,32 @@ export const LAW_CARDS: LawCardData[] = [
     categories: ['pvz'],
     icon: Landmark,
     body: 'Правила расчета подоходного налога (20%) или ОСН для владельцев ПВЗ. Налог исчисляется от суммы чистого вознаграждения, выплаченного маркетплейсом, за вычетом документально подтвержденных расходов (аренда, ФОТ сотрудников).',
+    source: {
+      label: 'Министерство по налогам и сборам РБ — nalog.gov.by',
+      url: 'https://nalog.gov.by',
+    },
+  },
+  {
+    id: 'ukaz-243-marking',
+    title: 'Указ № 243 — Обязательная маркировка товаров',
+    categories: ['shoes', 'clothes'],
+    icon: Shirt,
+    body: 'В Беларуси оборот обуви, текстиля и некоторых видов одежды без кодов защиты строго запрещен. Селлеры обязаны маркировать товар в национальной системе «Электронный знак».',
+    source: {
+      label: 'Государственная система маркировки — datamark.by',
+      url: 'https://datamark.by',
+    },
+  },
+  {
+    id: 'npd-self-employed',
+    title: 'Налог на профессиональный доход (НПД) для самозанятых',
+    categories: ['npd'],
+    icon: UserRound,
+    body: 'Физические лица в РБ имеют право продавать на маркетплейсах товары СОБСТВЕННОГО производства, уплачивая налог 10% (или 20% при превышении лимита) через официальное приложение МНС РБ. Перепродавать чужие товары на НПД строго запрещено.',
+    source: {
+      label: 'База знаний МНС РБ по НПД — nalog.gov.by',
+      url: 'https://nalog.gov.by/tax_regimes/npd/',
+    },
   },
 ];
 
@@ -90,9 +150,46 @@ const idleTagClass =
 const cardClass =
   'bg-white rounded-xl border border-neutral-200 shadow-sm p-5 sm:p-6 transition-shadow duration-200 hover:shadow-md';
 
+/** Приводит текст к сравнимому виду: нижний регистр, «ё» → «е», схлопнутые пробелы */
+const normalizeText = (value: string) =>
+  value.toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+
+/** Полный текст карточки для живого поиска: заголовок, описание, примечание и метки ниш */
+const buildSearchText = (card: LawCardData) =>
+  normalizeText(
+    [
+      card.title,
+      card.body,
+      card.note ?? '',
+      card.source.label,
+      ...card.categories.map((category) => CATEGORY_LABELS[category]),
+    ].join(' ')
+  );
+
+const LAW_SEARCH_TEXT: Record<string, string> = Object.fromEntries(
+  LAW_CARDS.map((card) => [card.id, buildSearchText(card)])
+);
+
+/** Каждое слово запроса должно встречаться в тексте карточки (AND-поиск по словам) */
+export function matchesLawQuery(card: LawCardData, query: string): boolean {
+  const words = normalizeText(query).split(' ').filter(Boolean);
+  if (words.length === 0) return true;
+
+  const haystack = LAW_SEARCH_TEXT[card.id] ?? buildSearchText(card);
+  return words.every((word) => haystack.includes(word));
+}
+
+/** Карточка видна только когда совпадают ОБА условия: выбранный тег И поисковый запрос */
+export function isLawCardVisible(card: LawCardData, activeTag: LawTag, query: string): boolean {
+  const matchesTag = activeTag === 'all' || card.categories.includes(activeTag as LawCategory);
+  return matchesTag && matchesLawQuery(card, query);
+}
+
 export default function LegalNavigator({ feature }: { feature: Feature }) {
   const [activeTag, setActiveTag] = useState<LawTag>('all');
+  const [query, setQuery] = useState('');
   const tagPanelRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const panel = tagPanelRef.current;
@@ -111,12 +208,23 @@ export default function LegalNavigator({ feature }: { feature: Feature }) {
     return () => panel.removeEventListener('click', handleTagClick);
   }, []);
 
+  useEffect(() => {
+    const input = searchRef.current;
+    if (!input) return;
+
+    const handleSearchInput = () => setQuery(input.value);
+
+    input.addEventListener('input', handleSearchInput);
+    return () => input.removeEventListener('input', handleSearchInput);
+  }, []);
+
   const visibleCards = useMemo(
-    () => LAW_CARDS.filter((card) => activeTag === 'all' || card.categories.includes(activeTag as LawCategory)),
-    [activeTag]
+    () => LAW_CARDS.filter((card) => isLawCardVisible(card, activeTag, query)),
+    [activeTag, query]
   );
 
   const activeTagLabel = LAW_TAGS.find((tag) => tag.id === activeTag)?.label ?? 'Показать всё';
+  const trimmedQuery = query.trim();
 
   return (
     <SectionContentWrapper feature={feature}>
@@ -159,15 +267,37 @@ export default function LegalNavigator({ feature }: { feature: Feature }) {
             })}
           </div>
 
+          <div className="relative mt-4">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400"
+              aria-hidden="true"
+            />
+            <input
+              id="legal-search"
+              ref={searchRef}
+              type="text"
+              value={query}
+              placeholder="Поиск по ключевым словам (например: штраф, налог, УСН)..."
+              aria-label="Поиск по законам"
+              className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 border border-neutral-300 rounded-xl text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all"
+            />
+          </div>
+
           <p className="mt-3 text-xs text-neutral-500" aria-live="polite">
-            Активный фильтр: <span className="font-medium text-neutral-700">{activeTagLabel}</span> — показано{' '}
-            {visibleCards.length} из {LAW_CARDS.length} законов
+            Активный фильтр: <span className="font-medium text-neutral-700">{activeTagLabel}</span>
+            {trimmedQuery && (
+              <>
+                {' '}
+                + поиск «<span className="font-medium text-neutral-700">{trimmedQuery}</span>»
+              </>
+            )}{' '}
+            — показано {visibleCards.length} из {LAW_CARDS.length} законов
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
           {LAW_CARDS.map((card) => {
-            const isVisible = activeTag === 'all' || card.categories.includes(activeTag as LawCategory);
+            const isVisible = isLawCardVisible(card, activeTag, query);
             const Icon = card.icon;
 
             return (
@@ -194,6 +324,17 @@ export default function LegalNavigator({ feature }: { feature: Feature }) {
                   </p>
                 )}
 
+                <a
+                  href={card.source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-law-source={card.id}
+                  className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[#7b1fa2] hover:text-[#4a148c] hover:underline underline-offset-2 transition-colors break-words"
+                >
+                  {card.source.label}
+                  <ArrowUpRight className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+                </a>
+
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {card.categories.map((category) => (
                     <span
@@ -208,6 +349,18 @@ export default function LegalNavigator({ feature }: { feature: Feature }) {
               </article>
             );
           })}
+
+          {visibleCards.length === 0 && (
+            <div className="md:col-span-2 rounded-xl border border-dashed border-[#7b1fa2]/40 bg-white px-5 py-6 text-center">
+              <p className="text-sm font-medium text-neutral-900">
+                По запросу «{trimmedQuery}» в выбранной нише законов не найдено
+              </p>
+              <p className="mt-1 text-xs text-neutral-500">
+                Снимите фильтр-тег, попробуйте другое ключевое слово или воспользуйтесь универсальной карточкой
+                ниже — она доступна при любом фильтре.
+              </p>
+            </div>
+          )}
 
           <article
             data-law-card="fallback"
