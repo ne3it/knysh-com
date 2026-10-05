@@ -597,3 +597,263 @@ export const SimulatorIcon = ({ className = '', style, ...props }: SVGProps<SVGS
     <path d="M9.3 7.3l-1.6 1.6 2.8 2.8 1.6-1.6" stroke="#7b1fa2" />
   </svg>
 );
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Раздел «Строительный» (/const)
+
+   Иконки этой группы намеренно рисуются через stroke="currentColor", а не
+   фиолетовым: в /const фон графитный, и иконка должна брать цвет от родителя —
+   белый в сайдбаре, хаки в баннере обучающего модуля.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Раздел /const — строительная каска */
+export const HardHatIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Козырёк каски */}
+    <path d="M2.5 18.5h19" />
+    {/* Купол */}
+    <path d="M5 18.5V14a7 7 0 0 1 14 0v4.5" />
+    {/* Рёбра жёсткости */}
+    <path d="M12 7v11.5" />
+    <path d="M8.6 9.2v9.3" />
+    <path d="M15.4 9.2v9.3" />
+  </svg>
+);
+
+/** Мастерок — кладка и отделка */
+export const TrowelIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Лезвие, остриём вниз-влево */}
+    <path d="M20.5 2.5l-7.8 7.8 5.5 5.5 2.6-2.6c-.6-4-.1-7.5.3-10.7z" />
+    {/* Хвост */}
+    <path d="M12.7 10.3l-7.9 7.9a2.1 2.1 0 0 0 3 3l7.9-7.9" />
+  </svg>
+);
+
+/** Сетка объёмов и размеров: угольник + линейка */
+export const GeometryIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Угольник */}
+    <path d="M2.5 20h11L2.5 5v15z" />
+    {/* Линейка с делениями */}
+    <path d="M15 20l6-15" />
+    <path d="M13.6 16.4l2.2 1.2M15.8 13.2l2.2 1.2M18 10l2.2 1.2" />
+  </svg>
+);
+
+/** Обучающий модуль /const — каска с гаечным ключом */
+export const ConstructionSimulatorIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Каска */}
+    <path d="M2.5 17.5h13" />
+    <path d="M5 17.5V13a6 6 0 0 1 12 0v4.5" />
+    <path d="M11 7.2v10.3" />
+    {/* Гаечный ключ */}
+    <path d="M17.2 13.4a3.6 3.6 0 1 0 3.6 3.6" />
+    <path d="M20.2 10.8l2.1-2.1" />
+  </svg>
+);
+
+/** Фундамент — плита с арматурной сеткой в изометрии */
+export const FoundationIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Контур плиты */}
+    <path d="M2.5 19.5V9l9.5-5.5L21.5 9v10.5" />
+    {/* Нижняя грань плиты */}
+    <path d="M2.5 19.5h19" />
+    {/* Арматурная сетка */}
+    <path d="M2.5 14.3h19" />
+    <path d="M8.3 6.6v12.9M15.7 10.9v8.6" />
+  </svg>
+);
+
+/** Кладка из блоков — ряды со смещёнными стыками */
+export const BlocksIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Горизонтальные швы рядов */}
+    <path d="M2.5 5.5h19M2.5 10h19M2.5 14.5h19M2.5 19h19" />
+    {/* Вертикальные стыки со смещением (перевязка) */}
+    <path d="M8 5.5V10M16 5.5V10" />
+    <path d="M5 10v4.5M12 10v4.5M19 10v4.5" />
+    <path d="M8 14.5V19M16 14.5V19" />
+  </svg>
+);
+
+/** Арматура — два стержня внахлёст со связкой */
+export const RebarIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Верхний стержень на всю длину */}
+    <path d="M2.5 7.5h19" />
+    {/* Нижний стержень заходит внахлёст справа */}
+    <path d="M12 16.5h9.5" />
+    {/* Рифление */}
+    <path d="M5 5.6l2 1.8M9 5.6l2 1.8M13 5.6l2 1.8M17 5.6l2 1.8" />
+    <path d="M15 14.6l2 1.8M19 14.6l2 1.8" />
+    {/* Связь вязальной проволокой */}
+    <path d="M12 7.5v9" />
+    <path d="M10.4 9.5c2 1.4 2.4 3.6 3.2 5.6" />
+  </svg>
+);
+
+/** Скатная кровля — двускатный силуэт со стропилом */
+export const RoofIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Скаты */}
+    <path d="M1.8 10.2L12 3l10.2 7.2" />
+    {/* Стены */}
+    <path d="M5 9.2V21h14V9.2" />
+    {/* Конёк */}
+    <path d="M12 3v5.4" />
+    {/* Стропило */}
+    <path d="M3.2 20.6L12 13.2l8.8 7.4" />
+  </svg>
+);
+
+/** Штукатурка — шпатель по стене со свежим слоем */
+export const PlasterIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Стена и граница штукатурки */}
+    <path d="M2.5 3.5v18h19" />
+    <path d="M5.5 19.5h16" />
+    {/* Шпатель */}
+    <path d="M8.6 8.4h9.8a2 2 0 0 1 1.8 2.9l-2.6 4.6a2 2 0 0 1-1.8 1.1H8.6V8.4z" />
+    {/* Ручка шпателя */}
+    <path d="M8.6 8.4L5.4 5.2" />
+  </svg>
+);
+
+/** Стяжка пола — разрез: плитка, стяжка с армированием, основание */
+export const ScreedIcon = ({ className = '', style, ...props }: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    style={style}
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Пол сверху */}
+    <path d="M2.5 8.5h19" />
+    {/* Стяжка */}
+    <path d="M3.5 11.5h17v5H3.5z" />
+    {/* Армирование стяжки */}
+    <path d="M6.5 14h11" />
+    {/* Основание */}
+    <path d="M2.5 19.5h19" />
+    {/* Плитка со швом */}
+    <path d="M12 8.5V11.5" />
+  </svg>
+);

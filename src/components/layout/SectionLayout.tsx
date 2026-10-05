@@ -75,9 +75,15 @@ export function SectionLayout({ sectionId, children }: SectionLayoutProps) {
 
   const SectionIcon = getIconComponent(sectionConfig.icon);
   const store = useSectionStore.getState();
+  // Тема раздела. Раздел без theme (то есть /wb) рендерится как раньше;
+  // 'graphite' включает палитру графит + хаки + белый из globals.css.
+  const theme = sectionConfig.theme === 'graphite' ? 'graphite' : undefined;
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col bg-white lg:flex-row">
+    <div
+      className="relative flex min-h-screen w-full flex-col bg-white lg:flex-row"
+      data-section-theme={theme}
+    >
       {/* Mobile Header */}
       <header className="sticky top-0 z-40 flex w-full items-center gap-3 border-b border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur-sm lg:hidden">
         <button

@@ -77,6 +77,36 @@ export const COMPONENT_REGISTRY: Record<string, FeatureComponent> = {
   '@components/features/wb/LegalNavigator': dynamic(() =>
     import('@/components/features/wb/LegalNavigator').then(loadDefault)
   ),
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Раздел «Строительный» (/const).
+
+     Код каждого калькулятора лежит в своём модуле и грузится отдельным чанком
+     только в момент клика по пункту меню. Каркас и сайдбар при этом уже
+     в памяти: пользователь видит меню и сразу переключает инструменты,
+     не дожидаясь загрузки расчётной части.
+     ═══════════════════════════════════════════════════════════════════════ */
+  '@components/features/const/ConstructionSimulator': dynamic(() =>
+    import('@/components/features/const/ConstructionSimulator').then(loadDefault)
+  ),
+  '@components/features/const/FoundationCalculator': dynamic(() =>
+    import('@/components/features/const/FoundationCalculator').then(loadDefault)
+  ),
+  '@components/features/const/RebarCalculator': dynamic(() =>
+    import('@/components/features/const/RebarCalculator').then(loadDefault)
+  ),
+  '@components/features/const/BlocksCalculator': dynamic(() =>
+    import('@/components/features/const/BlocksCalculator').then(loadDefault)
+  ),
+  '@components/features/const/RoofCalculator': dynamic(() =>
+    import('@/components/features/const/RoofCalculator').then(loadDefault)
+  ),
+  '@components/features/const/PlasterCalculator': dynamic(() =>
+    import('@/components/features/const/PlasterCalculator').then(loadDefault)
+  ),
+  '@components/features/const/ScreedCalculator': dynamic(() =>
+    import('@/components/features/const/ScreedCalculator').then(loadDefault)
+  ),
 };
 
 /**

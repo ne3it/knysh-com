@@ -46,6 +46,17 @@ import {
   PvzPointIcon,
   SeoBrushIcon,
   SimulatorIcon,
+  /* Раздел «Строительный» (/const) */
+  HardHatIcon,
+  TrowelIcon,
+  GeometryIcon,
+  ConstructionSimulatorIcon,
+  FoundationIcon,
+  BlocksIcon,
+  RebarIcon,
+  RoofIcon,
+  PlasterIcon,
+  ScreedIcon,
 } from './icons';
 
 export const ICON_MAP: Record<
@@ -98,6 +109,17 @@ export const ICON_MAP: Record<
   SeoBrush: SeoBrushIcon,
   /* Иконка обучающего модуля */
   Simulator: SimulatorIcon,
+  /* Раздел «Строительный» (/const) */
+  HardHat: HardHatIcon,
+  Trowel: TrowelIcon,
+  Geometry: GeometryIcon,
+  ConstructionSimulator: ConstructionSimulatorIcon,
+  Foundation: FoundationIcon,
+  Blocks: BlocksIcon,
+  Rebar: RebarIcon,
+  Roof: RoofIcon,
+  Plaster: PlasterIcon,
+  Screed: ScreedIcon,
 };
 
 export function getIconComponent(name: string) {
@@ -375,10 +397,181 @@ export const WB_SECTION_CONFIG: SectionConfig = {
   featureGroups: [...WB_LEARNING_GROUPS, ...WB_FEATURE_GROUPS],
   defaultBlock: 'startup',
   description: 'Инструменты для управления бизнесом на Wildberries',
+  // Планировщик старта и Калькулятор ПВЗ намеренно не выведены в меню,
+  // но остаются доступными по /wb?tool=<id>
+  standaloneFeatures: WB_STANDALONE_FEATURES,
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   РАЗДЕЛ «СТРОИТЕЛЬНЫЙ» (/const) — калькуляторы РБ.
+
+   Оформление отличается от /wb принципиально: тема graphite (графит + хаки),
+   крупный заголовок сайдбара «Kilo Construction», а выделение обучающего
+   модуля идёт цветом khaki вместо золотого. Сам реестр при этом устроен так же:
+   блок → таб → инструмент, поэтому переиспользуется вся существующая обвязка
+   (аккордеон, поиск, ленивая загрузка через componentRegistry).
+
+   Все расчёты ведутся в BYN и опираются на нормативы РБ: СН 2.01.01-2019
+   (глубина промерзания), СТБ EN 206-1 (классы бетона), расход клея 25 кг/м³,
+   нормы расхода сухих смесей 1,5–1,7 и 1,8–2,0 кг/м² на 1 мм слоя.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const constSimulator: Feature = {
+  id: 'const-simulator',
+  label: 'Симулятор расчетов [4 шага]',
+  icon: 'ConstructionSimulator',
+  description:
+    'Обучающий модуль: 4 шага от геометрии к смете в BYN — с живыми схемами и разбором ошибок',
+  componentPath: '@/components/features/const/ConstructionSimulator',
+};
+
+const constFoundation: Feature = {
+  id: 'const-foundation',
+  label: 'Расчет Фундамента',
+  icon: 'Foundation',
+  description:
+    'Плита и лента: объём бетона с коэффициентом уплотнения 1,05, глубина промерзания по СН 2.01.01-2019',
+  componentPath: '@/components/features/const/FoundationCalculator',
+};
+
+const constRebar: Feature = {
+  id: 'const-rebar',
+  label: 'Арматура и нахлёсты',
+  icon: 'Rebar',
+  description:
+    'А400/А500 по СТБ 4274: нахлёст 10–12 % + 250 мм и 20Ø, сетки фундамента, вязка',
+  componentPath: '@/components/features/const/RebarCalculator',
+};
+
+const constBlocks: Feature = {
+  id: 'const-blocks',
+  label: 'Калькулятор Блоков (РБ)',
+  icon: 'Blocks',
+  description:
+    'Забудова, Красносельск, МКСИ: размеры 625×300×200, 625×400×200, 500×300×250, вычет проёмов, клей 25 кг/м³, бой 5–7 %',
+  componentPath: '@/components/features/const/BlocksCalculator',
+};
+
+const constRoof: Feature = {
+  id: 'const-roof',
+  label: 'Скатная Кровля',
+  icon: 'Roof',
+  description:
+    'Площади треугольных и трапециевидных скатов, стропила с нахлёстом, обрешётка, кровельный пирог',
+  componentPath: '@/components/features/const/RoofCalculator',
+};
+
+const constPlaster: Feature = {
+  id: 'const-plaster',
+  label: 'Штукатурка и Отделка',
+  icon: 'Plaster',
+  description:
+    'Расход сухой смеси по площади стен и толщине слоя: 1,5–1,7 кг/м² на 1 мм, Илмакс / Тайфун Мастер / Ceresit',
+  componentPath: '@/components/features/const/PlasterCalculator',
+};
+
+const constScreed: Feature = {
+  id: 'const-screed',
+  label: 'Расчет Стяжки пола',
+  icon: 'Screed',
+  description:
+    'Расход 1,8–2,0 кг/м² на 1 мм, расклад цемента, песка и готовой смеси по толщине слоя',
+  componentPath: '@/components/features/const/ScreedCalculator',
+};
+
+/** Обучающий модуль /const — крупная хаки-кнопка в первой категории меню */
+export const CONST_SIMULATOR_BLOCK: ToolBlock = {
+  id: 'const-simulator',
+  label: 'Обучающий модуль: Симулятор расчетов [4 шага]',
+  icon: 'ConstructionSimulator',
+  description: 'Геометрия → объём → нормативы РБ → смета в BYN',
+  highlight: 'khaki',
+  featured: true,
+  tabs: [tab('simulator', '🎓 Симулятор расчетов [4 шага]', [constSimulator])],
+};
+
+export const CONST_BLOCKS: ToolBlock[] = [
+  {
+    id: 'const-foundation-block',
+    label: 'Расчет Фундамента',
+    icon: 'Foundation',
+    description: 'Плита, лента, объем бетона',
+    tabs: [
+      tab('concrete', 'Бетон и геометрия фундамента', [constFoundation]),
+      tab('rebar', 'Арматура и нахлёсты', [constRebar]),
+    ],
+  },
+  {
+    id: 'const-blocks-block',
+    label: 'Калькулятор Блоков (РБ)',
+    icon: 'Blocks',
+    description: 'Вычет проемов, клей, бой',
+    tabs: [tab('masonry', 'Кладка блоками РБ', [constBlocks])],
+  },
+  {
+    id: 'const-roof-block',
+    label: 'Скатная Кровля',
+    icon: 'Roof',
+    description: 'Площадь треугольных/трапециевидных скатов, стропила, обрешетка',
+    tabs: [tab('geometry', 'Скаты, стропила, обрешетка', [constRoof])],
+  },
+  {
+    id: 'const-plaster-block',
+    label: 'Штукатурка и Отделка',
+    icon: 'Plaster',
+    description: 'Расход смеси по площади стен и толщине слоя',
+    tabs: [tab('plaster', 'Расход штукатурной смеси', [constPlaster])],
+  },
+  {
+    id: 'const-screed-block',
+    label: 'Расчет Стяжки пола',
+    icon: 'Screed',
+    description: 'Расход цемента/песка/клея по нормам',
+    tabs: [tab('screed', 'Стяжка: смесь или раствор', [constScreed])],
+  },
+];
+
+/**
+ * Категория 1 сайдбара — «Геометрия и Объемы».
+ * Внутри только обучающий модуль: он учит считать объёмы и площади
+ * ДО того, как прораб возьмётся за смету.
+ */
+export const CONST_GEOMETRY_GROUPS: FeatureGroup[] = [
+  {
+    id: 'const-geometry',
+    label: 'Геометрия и Объемы',
+    defaultOpen: true,
+    blocks: [CONST_SIMULATOR_BLOCK],
+  },
+];
+
+/** Категория 2 сайдбара — «Основные калькуляторы» */
+export const CONST_CALCULATOR_GROUPS: FeatureGroup[] = [
+  {
+    id: 'const-calculators',
+    label: 'Основные калькуляторы',
+    defaultOpen: true,
+    blocks: CONST_BLOCKS,
+  },
+];
+
+export const CONST_SECTION_CONFIG: SectionConfig = {
+  id: 'const',
+  label: 'Строительный',
+  sidebarTitle: 'Kilo Construction',
+  sidebarSubtitle: 'Калькуляторы РБ · смета в BYN',
+  icon: 'HardHat',
+  // Хаки #4B5338 — акцент раздела: рамки, фокусы, активные элементы
+  color: '#4B5338',
+  theme: 'graphite',
+  featureGroups: [...CONST_GEOMETRY_GROUPS, ...CONST_CALCULATOR_GROUPS],
+  defaultBlock: 'const-simulator',
+  description: 'Калькуляторы строительных работ РБ: фундаменты, блоки, кровля, штукатурка и стяжка',
 };
 
 export const SECTIONS_REGISTRY: Record<string, SectionConfig> = {
   wb: WB_SECTION_CONFIG,
+  const: CONST_SECTION_CONFIG,
 };
 
 export function getSectionConfig(sectionId: string): SectionConfig | undefined {
@@ -419,10 +612,10 @@ export function getFeature(sectionId: string, featureId: string): Feature | unde
     }
   }
 
-  if (sectionId === 'wb') {
-    return WB_STANDALONE_FEATURES.find((feature) => feature.id === featureId);
-  }
-  return undefined;
+  // Инструменты вне меню открываются по /const?tool=<id>. Список берётся из
+  // конфига раздела, а не из ветки на 'wb': иначе второй раздел, которому
+  // понадобится deep link, молча не открылся бы.
+  return section.standaloneFeatures?.find((feature) => feature.id === featureId);
 }
 
 /** Инструменты, доступные из меню (те, что лежат в табах блоков) */

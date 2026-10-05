@@ -71,6 +71,10 @@ export function SectionSidebar({
   }
 
   const SectionIcon = getIconComponent(sectionConfig.icon);
+  // Раздел может задавать собственный крупный заголовок сайдбара
+  // (для /const это «Kilo Construction» вместо служебного label).
+  const title = sectionConfig.sidebarTitle ?? sectionConfig.label;
+  const subtitle = sectionConfig.sidebarSubtitle ?? sectionConfig.description;
 
   return (
     <aside
@@ -94,8 +98,8 @@ export function SectionSidebar({
               <SectionIcon className="w-5 h-5" style={{ color: sectionConfig.color }} aria-hidden="true" />
             </div>
             <div className="min-w-0">
-              <h1 className="font-semibold text-neutral-900 truncate">{sectionConfig.label}</h1>
-              <p className="text-xs text-neutral-500 truncate">{sectionConfig.description}</p>
+              <h1 className="font-semibold text-neutral-900 truncate">{title}</h1>
+              {subtitle && <p className="text-xs text-neutral-500 truncate">{subtitle}</p>}
             </div>
           </div>
         )}
@@ -210,15 +214,28 @@ interface BlockItemProps {
 
 function BlockItem({ block, isActive, sidebarCollapsed, onClick }: BlockItemProps) {
   const IconComponent = getIconComponent(block.icon);
+  /*
+    Бейдж показывает число ИНСТРУМЕНТОВ в блоке, а не число вкладок: вкладка —
+    способ их показать, а прорабу интересно, сколько калькуляторов спрятано
+    за пунктом меню. Единица молчит: бейдж «1» — это шум, а не информация.
+  */
+  const featuresCount = block.tabs.reduce((sum, item) => sum + item.features.length, 0);
 
   // Обучающий симулятор — крупная золото-фиолетовая кнопка в самом верху меню
   if (block.featured) {
+    // Баннер обучающего модуля. Для /const это хаки-блок из палитры раздела,
+    // для /wb — прежняя фиолетовая кнопка.
+    const khaki = block.highlight === 'khaki';
+
     if (sidebarCollapsed) {
       return (
         <li>
           <button
             onClick={onClick}
-            className="simulator-glow flex w-full items-center justify-center rounded-xl bg-gradient-to-br from-[#9c27b0] to-[#6a1b8f] p-2.5 text-white shadow-lg shadow-[#7b1fa2]/30 transition-transform hover:scale-105"
+            className={cn(
+              'simulator-glow flex w-full items-center justify-center rounded-xl p-2.5 text-white shadow-lg transition-transform hover:scale-105',
+              khaki ? 'bg-[var(--kc-khaki)] shadow-[var(--kc-khaki)]/30' : 'bg-gradient-to-br from-[#9c27b0] to-[#6a1b8f] shadow-[#7b1fa2]/30'
+            )}
             aria-current={isActive ? 'page' : undefined}
             title={block.label}
           >
@@ -235,10 +252,15 @@ function BlockItem({ block, isActive, sidebarCollapsed, onClick }: BlockItemProp
           aria-current={isActive ? 'page' : undefined}
           className={cn(
             'simulator-glow group relative w-full overflow-hidden rounded-xl px-4 py-4 text-left transition-transform',
-            'focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7b1fa2] focus-visible:ring-offset-2',
-            'bg-gradient-to-br from-[#9c27b0] via-[#7b1fa2] to-[#4a148c] text-white',
-            'shadow-lg shadow-[#7b1fa2]/25 hover:scale-[1.02] active:scale-[0.99]',
-            isActive && 'ring-2 ring-[#7b1fa2] ring-offset-2'
+            'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+            khaki
+              ? 'bg-[var(--kc-khaki)] text-white shadow-lg shadow-[var(--kc-khaki)]/30 hover:scale-[1.02] focus-visible:ring-[var(--kc-khaki-text)]'
+              : 'bg-gradient-to-br from-[#9c27b0] via-[#7b1fa2] to-[#4a148c] text-white shadow-lg shadow-[#7b1fa2]/25 hover:scale-[1.02] focus-visible:ring-[#7b1fa2]',
+            // Активный баннер: на хаки светлое кольцо, на фиолетовом — фиолетовое
+            isActive &&
+              (khaki
+                ? 'ring-2 ring-white/50 ring-offset-0'
+                : 'ring-2 ring-[#7b1fa2] ring-offset-2')
           )}
         >
           <span
@@ -254,12 +276,22 @@ function BlockItem({ block, isActive, sidebarCollapsed, onClick }: BlockItemProp
               <IconComponent className="w-6 h-6" aria-hidden="true" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[11px] font-semibold uppercase tracking-wider text-violet-100">
+              <span
+                className={cn(
+                  'block text-[11px] font-semibold uppercase tracking-wider',
+                  khaki ? 'text-white/80' : 'text-violet-100'
+                )}
+              >
                 Обучающий модуль
               </span>
               <span className="block text-sm font-bold leading-snug">{block.label}</span>
-              <span className="mt-1 block text-xs leading-snug text-violet-100/90">
-                4 шага · конфетти · разбор ошибок
+              <span
+                className={cn(
+                  'mt-1 block text-xs leading-snug',
+                  khaki ? 'text-white/75' : 'text-violet-100/90'
+                )}
+              >
+                {khaki ? '4 шага · живые схемы · смета в BYN' : '4 шага · конфетти · разбор ошибок'}
               </span>
             </span>
           </span>
@@ -290,9 +322,14 @@ function BlockItem({ block, isActive, sidebarCollapsed, onClick }: BlockItemProp
         {!sidebarCollapsed && (
           <div className="flex-1 min-w-0 flex items-center gap-2">
             <span className="truncate">{block.label}</span>
-            <span className="flex-shrink-0 rounded-full bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-500">
-              {block.tabs.length}
-            </span>
+            {featuresCount > 1 && (
+              <span
+                className="flex-shrink-0 rounded-full bg-[var(--primary)]/20 px-1.5 py-0.5 text-[11px] font-medium text-[var(--primary)]"
+                title={`Инструментов в блоке: ${featuresCount}`}
+              >
+                {featuresCount}
+              </span>
+            )}
           </div>
         )}
       </button>

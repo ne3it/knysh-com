@@ -674,3 +674,217 @@
            hover:after:w-full;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   РАЗДЕЛ «СТРОИТЕЛЬНЫЙ» (/const) — брутальная палитра из трёх оттенков.
+
+   Графит  #121412 / #1B1E1B — фон приложения и карточек
+   Хаки    #4B5338 / #3A422E — баннер обучающего модуля, активные кнопки, рамки
+   Белый   — весь текст, цифры и линии на схемах
+
+   ПОЧЕМУ ТЕМА РЕАЛИЗОВАНА ЧЕРЕЗ CSS, А НЕ ЧЕРЕЗ КЛАССЫ КОМПОНЕНТОВ.
+   Каркас раздела (SectionLayout, SectionSidebar, BlockWorkspace,
+   SectionContent) общий с разделом /wb и собран на светлых утилитах
+   `bg-white`, `text-neutral-900`, `border-neutral-200`. Чтобы перекрасить
+   раздел целиком и НЕ трогать /wb, на корневом узле раздела ставится
+   атрибут data-section-theme="graphite", а ниже — переопределение этих
+   утилит внутри этой области. Специфичность (0,2,0) против (0,1,0) у
+   утилиты Tailwind, поэтому перекраска всегда побеждает.
+
+   Раздел без атрибута (то есть /wb и главная страница) не подпадает под
+   ни одно правило ниже и остаётся ровно тем, чем был.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  [data-section-theme='graphite'] {
+    /* Графит */
+    --kc-bg: #121412;
+    --kc-surface: #1b1e1b;
+    --kc-surface-2: #222622;
+    --kc-surface-3: #2a2f28;
+
+    /* Хаки */
+    --kc-khaki: #4b5338;
+    --kc-khaki-deep: #3a422e;
+    --kc-khaki-text: #a8b48c;
+
+    /* Белый с прозрачностью — так же, как в тёмной теме на главной */
+    --kc-text: #ffffff;
+    --kc-muted: rgba(255, 255, 255, 0.62);
+    --kc-faint: rgba(255, 255, 255, 0.4);
+
+    --kc-border: #2c312a;
+    --kc-border-strong: #3a422e;
+
+    /*
+      Существующий каркас обращается к активным состояниям через
+      var(--primary) (рамки фокуса, активная вкладка, иконка активного
+      пункта). Переопределяем его на хаки, и все эти состояния становятся
+      хаки-цветом автоматически — без единой правки в TSX.
+    */
+    --primary: #4b5338;
+    --primary-foreground: #ffffff;
+    --primary-hover: #3a422e;
+
+    color-scheme: dark;
+  }
+}
+
+@layer utilities {
+  /* ── Фон ───────────────────────────────────────────────────────────── */
+  [data-section-theme='graphite'] .bg-white {
+    background-color: var(--kc-surface);
+  }
+  [data-section-theme='graphite'] .bg-neutral-50 {
+    background-color: var(--kc-surface-2);
+  }
+  [data-section-theme='graphite'] .bg-neutral-100 {
+    background-color: var(--kc-surface-3);
+  }
+  [data-section-theme='graphite'] .bg-neutral-200 {
+    background-color: var(--kc-border);
+  }
+  [data-section-theme='graphite'] .bg-neutral-300 {
+    background-color: var(--kc-border-strong);
+  }
+  /* Полупрозрачные белые подложки становятся белыми поверх графита */
+  [data-section-theme='graphite'] .bg-white\/5 {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+  [data-section-theme='graphite'] .bg-white\/10 {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  [data-section-theme='graphite'] .bg-white\/20 {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+  [data-section-theme='graphite'] .bg-white\/25 {
+    background-color: rgba(255, 255, 255, 0.25);
+  }
+  /* Мобильный хедер (bg-white/95) и липкая шапка инструмента (bg-white/80):
+     на графите остаются графитовыми с полупрозрачностью */
+  [data-section-theme='graphite'] .bg-white\/80 {
+    background-color: rgba(27, 30, 27, 0.92);
+  }
+  [data-section-theme='graphite'] .bg-white\/95 {
+    background-color: rgba(18, 20, 18, 0.95);
+  }
+
+  /* ── Текст: белый для цифр и текста, приглушённый для подписей ─────── */
+  [data-section-theme='graphite'] .text-neutral-900 {
+    color: var(--kc-text);
+  }
+  [data-section-theme='graphite'] .text-neutral-800,
+  [data-section-theme='graphite'] .text-neutral-700 {
+    color: var(--kc-muted);
+  }
+  [data-section-theme='graphite'] .text-neutral-600,
+  [data-section-theme='graphite'] .text-neutral-500 {
+    color: var(--kc-muted);
+  }
+  [data-section-theme='graphite'] .text-neutral-400 {
+    color: var(--kc-faint);
+  }
+  [data-section-theme='graphite'] .text-neutral-300 {
+    color: var(--kc-faint);
+  }
+
+  /* ── Границы ───────────────────────────────────────────────────────── */
+  [data-section-theme='graphite'] .border-neutral-100,
+  [data-section-theme='graphite'] .border-neutral-200,
+  [data-section-theme='graphite'] .border-neutral-300,
+  [data-section-theme='graphite'] .border-neutral-800,
+  [data-section-theme='graphite'] .border-neutral-900 {
+    border-color: var(--kc-border);
+  }
+  [data-section-theme='graphite'] .border-dashed {
+    border-color: var(--kc-border-strong);
+  }
+
+  /* ── Поля ввода: тёмная заливка, белый текст, хаки-фокус ──────────── */
+  [data-section-theme='graphite'] input,
+  [data-section-theme='graphite'] select,
+  [data-section-theme='graphite'] textarea {
+    background-color: var(--kc-surface-2);
+    border-color: var(--kc-border);
+    color: var(--kc-text);
+  }
+  [data-section-theme='graphite'] input::placeholder,
+  [data-section-theme='graphite'] textarea::placeholder {
+    color: var(--kc-faint);
+  }
+  [data-section-theme='graphite'] input:focus,
+  [data-section-theme='graphite'] select:focus,
+  [data-section-theme='graphite'] textarea:focus {
+    border-color: var(--kc-khaki);
+    box-shadow: 0 0 0 2px rgba(75, 83, 56, 0.45);
+  }
+  /* Стрелки выпадающих списков — серые на тёмном фоне */
+  [data-section-theme='graphite'] select {
+    color-scheme: dark;
+  }
+
+  /* ── Полосы прокрутки ──────────────────────────────────────────────── */
+  [data-section-theme='graphite'] ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  [data-section-theme='graphite'] ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  [data-section-theme='graphite'] ::-webkit-scrollbar-thumb {
+    background: var(--kc-border-strong);
+    border-radius: 4px;
+  }
+  [data-section-theme='graphite'] ::-webkit-scrollbar-thumb:hover {
+    background: var(--kc-khaki);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Утилиты раздела «Строительный»: карточка расчёта и живая SVG-схема.
+   Объявлены отдельными классами, чтобы семь калькуляторов выглядели одинаково
+   и не повторяли длинные цепочки классов.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  /* Карточка калькулятора: графит + хаки-рамка */
+  .kc-card {
+    @apply rounded-2xl border border-[var(--kc-border)] bg-[var(--kc-surface)] p-4 sm:p-5;
+  }
+
+  /* Заголовок блока внутри карточки */
+  .kc-card-title {
+    @apply mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-[var(--kc-khaki-text)];
+  }
+
+  /* Активная хаки-кнопка */
+  .kc-btn-khaki {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--kc-khaki)]
+           bg-[var(--kc-khaki)] px-4 py-2.5 text-sm font-semibold text-white
+           transition-colors hover:bg-[var(--kc-khaki-deep)] focus:outline-none
+           focus-visible:ring-2 focus-visible:ring-[var(--kc-khaki-text)];
+  }
+
+  /* Вторичная кнопка — тёмный фон, хаки-рамка */
+  .kc-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--kc-border-strong)]
+           bg-[var(--kc-surface-2)] px-4 py-2.5 text-sm font-medium text-white
+           transition-colors hover:border-[var(--kc-khaki)] hover:text-[var(--kc-khaki-text)]
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--kc-khaki-text)];
+  }
+
+  /* Контейнер живой SVG-схемы */
+  .kc-scheme {
+    @apply w-full overflow-hidden rounded-xl border border-[var(--kc-border-strong)]
+           bg-[var(--kc-bg)] p-2 sm:p-3;
+  }
+
+  /* Строка результата: цифра + подпись */
+  .kc-stat-label {
+    @apply block text-[11px] uppercase tracking-wide text-[var(--kc-muted)];
+  }
+
+  .kc-stat-value {
+    @apply block font-mono text-lg font-semibold tabular-nums text-white sm:text-xl;
+  }
+}
