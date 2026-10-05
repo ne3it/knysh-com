@@ -2,12 +2,15 @@
 
 import React, { useCallback, useEffect, useRef } from 'react';
 import {
-  GLOBAL_CONTEXT_FIELDS,
+  GLOBAL_AVG_CHECK_FIELD,
+  GLOBAL_BUYOUT_FIELD,
   GLOBAL_COST_FIELD,
+  GLOBAL_PANEL_FIELDS,
   GLOBAL_QTY_FIELD,
+  GLOBAL_RENT_FIELD,
+  GLOBAL_TRAFFIC_FIELD,
   PVZ_BLOCK_ID,
   SHARED_KEYS,
-  getGlobalContextMode,
   sanitizeSharedInput,
   useSharedEconomics,
   type GlobalFieldMeta,
@@ -24,6 +27,16 @@ import { useSectionStore } from '@/lib/store/sectionStore';
 /** Вкладка «Калькулятор ПВЗ WB» — её открывает выбор франшизы ПВЗ в панели */
 const PVZ_TAB_ID = 'pvz';
 
+/** id полей панели: сохраняем прежние для товарного режима (#global-context-input — выкуп) */
+const PANEL_INPUT_IDS: Partial<Record<string, string>> = {
+  [GLOBAL_COST_FIELD.key]: 'global-cost',
+  [GLOBAL_QTY_FIELD.key]: 'global-qty',
+  [GLOBAL_BUYOUT_FIELD.key]: 'global-context-input',
+  [GLOBAL_TRAFFIC_FIELD.key]: 'global-traffic',
+  [GLOBAL_RENT_FIELD.key]: 'global-rent',
+  [GLOBAL_AVG_CHECK_FIELD.key]: 'global-avg-check',
+};
+
 /**
  * Панель «↔ СКВОЗНЫЕ ПЕРЕМЕННЫЕ» — верхний блок рабочей области блока.
  *
@@ -34,11 +47,12 @@ const PVZ_TAB_ID = 'pvz';
  *      в `<optgroup>`, плюс позиция «Франшиза ПВЗ (Пункт выдачи заказов)»;
  *   2) Себестоимость: `<input id="global-cost">`, BYN за 1 единицу;
  *   3) Количество: `<input id="global-qty">`, шт в партии;
- *   4) контекстный `<input id="global-context-input">`:
- *        • товарные блоки и любые 60 позиций 713 → «Выкуп», % — уходит в
- *          калькуляторы покатушек и юнит-экономики;
- *        • позиция «Франшиза ПВЗ» и блок «Аналитика ПВЗ и Логистика»
- *          → «Трафик», чел/день — уходит в форму окупаемости ПВЗ.
+ *   4) три числовых поля, набор которых зависит от выбранного товара:
+ *        • любая категория Постановления № 713 → себестоимость (BYN),
+ *          количество (шт) и выкуп (%) — экономика единицы товара;
+ *        • «Франшиза ПВЗ» → трафик (чел/день), аренда (BYN/мес) и средний чек
+ *          (BYN) — окупаемость пункта выдачи, они сквозные для формы
+ *          «Калькулятор ПВЗ WB».
  *
  * Сквозная синхронизация лимитов 713: значение селекта — это id из справочника
  * Постановления № 713, поэтому выбор сразу попадает и в `category` (его читают
@@ -56,7 +70,7 @@ const PVZ_TAB_ID = 'pvz';
  * Пустые поля и буквы не проходят: ввод санитайзится, чтение идёт через
  * `parseFloat(value) || 0`. Валюта панели — строго BYN.
  */
-export function SharedVariablesPanel({ blockId }: { blockId?: string | null }) {
+export function SharedVariablesPanel() {
   const values = useSharedEconomics((state) => state.values);
   const setValue = useSharedEconomics((state) => state.setValue);
   const setValues = useSharedEconomics((state) => state.setValues);
@@ -67,9 +81,9 @@ export function SharedVariablesPanel({ blockId }: { blockId?: string | null }) {
   const selectedId = getCatalogItem(storedId) ? storedId : DEFAULT_CATALOG_ITEM_ID;
   const selectedItem = getCatalogItem(selectedId);
 
-  // 4-й параметр: трафик — для франшизы ПВЗ и для блока «Аналитика ПВЗ и Логистика»
-  const isPvzContext = isPvzFranchise(selectedId) || getGlobalContextMode(blockId) === 'pvz';
-  const contextField = GLOBAL_CONTEXT_FIELDS[isPvzContext ? 'pvz' : 'product'];
+  /** Франшиза ПВЗ меняет набор полей: вместо товарных — трафик, аренда, средний чек */
+  const isPvz = isPvzFranchise(selectedId);
+  const fields = GLOBAL_PANEL_FIELDS[isPvz ? 'pvz' : 'product'];
 
   /** Открыть вкладку «Калькулятор ПВЗ WB» (блок «Аналитика ПВЗ и Логистика») */
   const openPvzCalculator = useCallback(() => {
@@ -87,8 +101,10 @@ export function SharedVariablesPanel({ blockId }: { blockId?: string | null }) {
       [SHARED_KEYS.category]: DEFAULT_CATALOG_ITEM_ID,
       [GLOBAL_COST_FIELD.key]: GLOBAL_COST_FIELD.fallback,
       [GLOBAL_QTY_FIELD.key]: GLOBAL_QTY_FIELD.fallback,
-      [GLOBAL_CONTEXT_FIELDS.product.key]: GLOBAL_CONTEXT_FIELDS.product.fallback,
-      [GLOBAL_CONTEXT_FIELDS.pvz.key]: GLOBAL_CONTEXT_FIELDS.pvz.fallback,
+      [GLOBAL_BUYOUT_FIELD.key]: GLOBAL_BUYOUT_FIELD.fallback,
+      [GLOBAL_TRAFFIC_FIELD.key]: GLOBAL_TRAFFIC_FIELD.fallback,
+      [GLOBAL_RENT_FIELD.key]: GLOBAL_RENT_FIELD.fallback,
+      [GLOBAL_AVG_CHECK_FIELD.key]: GLOBAL_AVG_CHECK_FIELD.fallback,
     };
     const patch: Record<string, string> = {};
     Object.entries(defaults).forEach(([key, fallback]) => {
@@ -218,34 +234,23 @@ export function SharedVariablesPanel({ blockId }: { blockId?: string | null }) {
           </span>
         </label>
 
-        <NumberField
-          field={GLOBAL_COST_FIELD}
-          inputId="global-cost"
-          value={values[GLOBAL_COST_FIELD.key] ?? GLOBAL_COST_FIELD.fallback}
-          onInput={writeNumber}
-        />
-
-        <NumberField
-          field={GLOBAL_QTY_FIELD}
-          inputId="global-qty"
-          value={values[GLOBAL_QTY_FIELD.key] ?? GLOBAL_QTY_FIELD.fallback}
-          onInput={writeNumber}
-        />
-
-        <NumberField
-          field={contextField}
-          inputId="global-context-input"
-          value={values[contextField.key] ?? contextField.fallback}
-          onInput={writeNumber}
-          context
-        />
+        {fields.map((field, index) => (
+          <NumberField
+            key={field.key}
+            field={field}
+            inputId={PANEL_INPUT_IDS[field.key] ?? `global-field-${field.key}`}
+            value={values[field.key] ?? field.fallback}
+            onInput={writeNumber}
+            context={index === fields.length - 1}
+          />
+        ))}
       </div>
 
       {/* Лимит Постановления № 713 выбранной позиции — тот же процент считают формы ниже */}
       {selectedItem && (
         <p className="shared-var__hint">
           {selectedItem.pvz
-            ? 'Франшиза ПВЗ: лимит Пост. 713 не применяется, 4-й параметр — трафик ПВЗ'
+            ? 'Франшиза ПВЗ: лимит Пост. 713 не применяется · панель считает окупаемость точки (трафик, аренда, средний чек)'
             : `Пост. 713: надбавка не более ${selectedItem.limitPercent}% · категория подставлена в формы контроля цен`}
         </p>
       )}

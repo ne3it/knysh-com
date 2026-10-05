@@ -27,9 +27,10 @@ interface BlockWorkspaceProps {
  * Страница одного бизнес-блока.
  *
  *  - шапка блока с уникальной иконкой;
- *  - панель «↔ СКВОЗНЫЕ ПЕРЕМЕННЫЕ» — 4 глобальных параметра блока (товар,
- *    себестоимость, количество и контекстный параметр: выкуп в товарных блоках,
- *    трафик в блоке ПВЗ), которые живут в общем сторе;
+ *  - панель «↔ СКВОЗНЫЕ ПЕРЕМЕННЫЕ» — глобальные параметры блока: товар из
+ *    справочника Постановления № 713 и три числовых поля, набор которых зависит
+ *    от типа товара (себестоимость/количество/выкуп либо трафик/аренда/средний чек
+ *    для франшизы ПВЗ);
  *  - горизонтальные фиолетовые вкладки с инструментами блока.
  *
  * Вкладки монтируются один раз и дальше остаются в DOM (неактивные скрыты атрибутом hidden),
@@ -91,7 +92,7 @@ function BlockView({
     <div className="animate-fade-in space-y-4">
       <BlockHeader block={block} />
       {!isSimulator &&
-        (isConstruction ? <ConstructionRegionBar /> : <SharedVariablesPanel blockId={block.id} />)}
+        (isConstruction ? <ConstructionRegionBar /> : <SharedVariablesPanel />)}
       <ToolTabs block={block} activeTabId={activeTab.id} onTabChange={onTabChange} />
 
       {block.tabs.map((tab) => (

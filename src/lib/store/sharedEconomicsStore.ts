@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { PVZ_CONFIG } from '@/lib/services/pvzBreakEven';
 
 /**
  * Сквозные переменные WB (РБ).
@@ -22,10 +23,11 @@ import { persist, createJSONStorage } from 'zustand/middleware';
  *                     по секторам в <optgroup> (см. src/lib/services/productCatalog.ts);
  *   2) Себестоимость — BYN за 1 единицу;
  *   3) Количество   — объём партии, шт;
- *   4) контекстный параметр, который зависит от открытого блока:
- *        • товарные блоки (Планировщик старта, Маркировка, Налоги) → «Выкуп», %;
- *        • блок «Аналитика ПВЗ и Логистика» и позиция «Франшиза ПВЗ»
- *          из каталога                                                   → «Трафик», чел/день.
+ *   4) параметры, которые зависят от выбранного товара:
+ *        • обычная категория Постановления № 713 → себестоимость, количество
+ *          и процент выкупа: экономика единицы товара;
+ *        • «Франшиза ПВЗ» из каталога → трафик, аренда и средний чек:
+ *          окупаемость пункта выдачи.
  *
  * Выбор товара в панели — это id из справочника 713, поэтому он уходит сразу и в
  * `category` (формы «Контроль цен Пост. 713» и мега-калькулятор читают его через
@@ -67,6 +69,10 @@ export const SHARED_KEYS = {
   productCategory: 'productCategory',
   /** Поток клиентов ПВЗ, чел/день */
   traffic: 'traffic',
+  /** Ежемесячная аренда помещения ПВЗ, BYN */
+  rent: 'rent',
+  /** Средний чек одного заказа на WB, BYN */
+  avgCheck: 'avgCheck',
   /** Транзит РБ → РФ, BYN */
   transit: 'transit',
   /** Итог взносов ФСЗН + Белгосстрах за период, BYN (публикует вкладка «Расчет ФСЗН») */
@@ -121,39 +127,60 @@ export const GLOBAL_QTY_FIELD: GlobalFieldMeta = {
   fallback: '300',
 };
 
-/**
- * Контекст панели: 4-е поле перестраивается по открытому блоку.
- * Товарные блоки торгуют единицей товара — там важен процент выкупа,
- * блок ПВЗ считает окупаемость точки — там важен поток клиентов.
- */
-export type GlobalContextMode = 'product' | 'pvz';
-
-export const GLOBAL_CONTEXT_FIELDS: Record<GlobalContextMode, GlobalFieldMeta> = {
-  product: {
-    key: SHARED_KEYS.buyoutRate,
-    label: 'Выкуп',
-    unit: '%',
-    step: '1',
-    min: '1',
-    fallback: '30',
-  },
-  pvz: {
-    key: SHARED_KEYS.traffic,
-    label: 'Трафик',
-    unit: 'чел/день',
-    step: '1',
-    min: '0',
-    fallback: '80',
-  },
+/** Процент выкупа панели */
+export const GLOBAL_BUYOUT_FIELD: GlobalFieldMeta = {
+  key: SHARED_KEYS.buyoutRate,
+  label: 'Выкуп',
+  unit: '%',
+  step: '1',
+  min: '1',
+  fallback: '30',
 };
 
-/** Блок «Аналитика ПВЗ и Логистика» — единственный, где контекст = ПВЗ */
-export const PVZ_BLOCK_ID = 'pvz-logistics';
+/** Поток клиентов ПВЗ, чел/день */
+export const GLOBAL_TRAFFIC_FIELD: GlobalFieldMeta = {
+  key: SHARED_KEYS.traffic,
+  label: 'Трафик',
+  unit: 'чел/день',
+  step: '1',
+  min: '0',
+  fallback: String(PVZ_CONFIG.DEFAULT_TRAFFIC),
+};
 
-/** Контекст панели по id открытого блока (все прочие блоки — товарные) */
-export function getGlobalContextMode(blockId?: string | null): GlobalContextMode {
-  return blockId === PVZ_BLOCK_ID ? 'pvz' : 'product';
-}
+/** Аренда помещения ПВЗ за месяц, BYN */
+export const GLOBAL_RENT_FIELD: GlobalFieldMeta = {
+  key: SHARED_KEYS.rent,
+  label: 'Аренда',
+  unit: 'BYN/мес',
+  step: '1',
+  min: '0',
+  fallback: String(PVZ_CONFIG.DEFAULT_RENT),
+};
+
+/** Средний чек заказа, BYN */
+export const GLOBAL_AVG_CHECK_FIELD: GlobalFieldMeta = {
+  key: SHARED_KEYS.avgCheck,
+  label: 'Средний чек',
+  unit: 'BYN',
+  step: '0.5',
+  min: '0',
+  fallback: String(PVZ_CONFIG.DEFAULT_AVG_CHECK),
+};
+
+/**
+ * Набор числовых полей панели зависит от выбранного товара:
+ *  - обычная категория Постановления № 713 → экономика единицы товара:
+ *    себестоимость, количество партии и процент выкупа;
+ *  - «Франшиза ПВЗ» → окупаемость пункта выдачи: поток клиентов, аренда
+ *    и средний чек заказа (лимита 713 у услуги нет).
+ */
+export const GLOBAL_PANEL_FIELDS: Record<'product' | 'pvz', GlobalFieldMeta[]> = {
+  product: [GLOBAL_COST_FIELD, GLOBAL_QTY_FIELD, GLOBAL_BUYOUT_FIELD],
+  pvz: [GLOBAL_TRAFFIC_FIELD, GLOBAL_RENT_FIELD, GLOBAL_AVG_CHECK_FIELD],
+};
+
+/** Блок «Аналитика ПВЗ и Логистика» — вкладка калькулятора ПВЗ открывается сюда */
+export const PVZ_BLOCK_ID = 'pvz-logistics';
 
 /**
  * Санитайзер глобальных инпутов панели: оставляет только цифры и одну точку

@@ -389,6 +389,7 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                     onChange={updateText('rent')}
                     unit="BYN"
                     step="1"
+                    hint="↔ сквозной параметр «Аренда» панели «СКВОЗНЫЕ ПЕРЕМЕННЫЕ»"
                   />
                   <NumberField
                     id="pvz-utilities"
@@ -405,7 +406,7 @@ export default function PvzBreakEvenCalculator({ feature }: { feature: Feature }
                     onChange={updateText('avg_check')}
                     unit="BYN"
                     step="0.5"
-                    hint={`${PVZ_CONFIG.DAYS_IN_MONTH} дней в расчётном месяце`}
+                    hint={`${PVZ_CONFIG.DAYS_IN_MONTH} дней в расчётном месяце · ↔ сквозной параметр «Средний чек» панели «СКВОЗНЫЕ ПЕРЕМЕННЫЕ»`}
                   />
                   <NumberField
                     id="pvz-traffic"
