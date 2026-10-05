@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ExternalLink, ChevronDown, Menu, X, FolderOpen, Code, Terminal, Database, Globe, Shield, HardHat } from 'lucide-react';
+import { ArrowRight, ExternalLink, ChevronDown, FolderOpen, Code, Terminal, Database, Globe, Shield, HardHat, Home } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const sections = [
@@ -20,6 +20,14 @@ const sections = [
     description: 'Рабочий раздел: Калькуляторы РБ',
     icon: HardHat,
     href: '/const',
+    active: true,
+  },
+  {
+    id: 'frame',
+    title: 'Каркасные дома',
+    description: 'Рабочий раздел: конструктор по ТКП 45-5.05-146-2009',
+    icon: Home,
+    href: '/frame',
     active: true,
   },
   {

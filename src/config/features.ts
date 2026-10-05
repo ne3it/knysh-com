@@ -569,9 +569,76 @@ export const CONST_SECTION_CONFIG: SectionConfig = {
   description: 'Калькуляторы строительных работ РБ: фундаменты, блоки, кровля, штукатурка и стяжка',
 };
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   РАЗДЕЛ «КАРКАСНЫЕ ДОМА» (/frame) — конструктор по ТКП 45-5.05-146-2009.
+
+   Отличие от /const принципиальное: там набор независимых калькуляторов,
+   здесь — ОДИН конструктор с четырьмя шагами и общей схемой. Поэтому раздел
+   состоит из одного блока-конструктора: меню со списком из семи инструментов
+   для задачи «собрать дом» было бы ложным обещанием, что их можно выбирать.
+
+   Палитра та же, что у /const (графит #121412 + хаки #4B5338 + белый), чтобы
+   два строительных раздела читались как одно приложение, а не как два разных
+   сайта.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const frameConstructor: Feature = {
+  id: 'frame-constructor',
+  label: 'Конструктор каркасного дома',
+  icon: 'HardHat',
+  description:
+    'Полный цикл по ТКП 45-5.05-146-2009: сваи и обвязка, стойки с шагом 590 мм, утеплитель в м³, кровля. Проёмы перетаскиваются на схему — смета в BYN пересчитывается мгновенно',
+  componentPath: '@/components/frame/FrameConstructor',
+};
+
+export const FRAME_BLOCKS: ToolBlock[] = [
+  {
+    id: 'frame-constructor-block',
+    label: 'Конструктор каркасного дома',
+    icon: 'HardHat',
+    description: '4 шага: обвязка → стены → пирог → кровля. Смета в BYN',
+    featured: true,
+    highlight: 'khaki',
+    tabs: [
+      tab('cycle', '🏗 Полный цикл ТКП 45-5.05-146-2009', [frameConstructor]),
+    ],
+  },
+];
+
+/**
+ * Категории сайдбара /frame.
+ *
+ * Обе категории открыты по умолчанию: конструктор — короткий раздел, и
+ * скрывать его единственный блок за аккордеоном значит заставлять пользователя
+ * лишний клик на пустом месте.
+ */
+export const FRAME_FEATURE_GROUPS: FeatureGroup[] = [
+  {
+    id: 'frame-cycle',
+    label: 'Конструктор',
+    defaultOpen: true,
+    blocks: FRAME_BLOCKS,
+  },
+];
+
+export const FRAME_SECTION_CONFIG: SectionConfig = {
+  id: 'frame',
+  label: 'Каркасные дома',
+  sidebarTitle: 'Kilo Frame',
+  sidebarSubtitle: 'ТКП 45-5.05-146-2009 · смета в BYN',
+  icon: 'HardHat',
+  color: '#4B5338',
+  theme: 'graphite',
+  featureGroups: FRAME_FEATURE_GROUPS,
+  defaultBlock: 'frame-constructor-block',
+  description:
+    'Конструктор каркасных домов по белорусским стандартам: фундамент, стены, пирог, кровля',
+};
+
 export const SECTIONS_REGISTRY: Record<string, SectionConfig> = {
   wb: WB_SECTION_CONFIG,
   const: CONST_SECTION_CONFIG,
+  frame: FRAME_SECTION_CONFIG,
 };
 
 export function getSectionConfig(sectionId: string): SectionConfig | undefined {

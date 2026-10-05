@@ -107,6 +107,18 @@ export const COMPONENT_REGISTRY: Record<string, FeatureComponent> = {
   '@components/features/const/ScreedCalculator': dynamic(() =>
     import('@/components/features/const/ScreedCalculator').then(loadDefault)
   ),
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     Раздел «Каркасные дома» (/frame).
+
+     Конструктор один и он большой: внутри четыре шага, SVG-схема с
+     drag-and-drop и генератор ТЗ. Он вынесен в отдельный чанк целиком —
+     на мобильном интернете пользователь не должен платить за загрузку всего
+     конструктора, пока не открыл раздел.
+     ═══════════════════════════════════════════════════════════════════════ */
+  '@components/frame/FrameConstructor': dynamic(() =>
+    import('@/components/frame/FrameConstructor').then(loadDefault)
+  ),
 };
 
 /**
