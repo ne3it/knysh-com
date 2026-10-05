@@ -2,41 +2,59 @@
 
 import React, { useCallback, useEffect, useRef } from 'react';
 import {
-  DEFAULT_PRODUCT_CATEGORY_ID,
   GLOBAL_CONTEXT_FIELDS,
   GLOBAL_COST_FIELD,
   GLOBAL_QTY_FIELD,
-  PRODUCT_CATEGORIES,
+  PVZ_BLOCK_ID,
   SHARED_KEYS,
   getGlobalContextMode,
   sanitizeSharedInput,
   useSharedEconomics,
   type GlobalFieldMeta,
 } from '@/lib/store/sharedEconomicsStore';
+import {
+  DEFAULT_CATALOG_ITEM_ID,
+  PRODUCT_CATALOG_GROUPS,
+  getCatalogItem,
+  isPvzFranchise,
+} from '@/lib/services/productCatalog';
+import { PRICE_CONTROL_CUSTOM_ID } from '@/lib/services/priceControl713';
+import { useSectionStore } from '@/lib/store/sectionStore';
+
+/** Вкладка «Калькулятор ПВЗ WB» — её открывает выбор франшизы ПВЗ в панели */
+const PVZ_TAB_ID = 'pvz';
 
 /**
  * Панель «↔ СКВОЗНЫЕ ПЕРЕМЕННЫЕ» — верхний блок рабочей области блока.
  *
  * Ровно 4 параметра, которые подставляются во все формы проекта:
  *
- *   1) Товар: `<select id="global-category">` — справочник категорий;
+ *   1) Товар: `<select id="global-category">` — полная база категорий
+ *      Постановления № 713 (60 позиций), сгруппированная по товарным секторам
+ *      в `<optgroup>`, плюс позиция «Франшиза ПВЗ (Пункт выдачи заказов)»;
  *   2) Себестоимость: `<input id="global-cost">`, BYN за 1 единицу;
  *   3) Количество: `<input id="global-qty">`, шт в партии;
- *   4) контекстный `<input id="global-context-input">`, единственное поле,
- *      которое перестраивается по открытому блоку:
- *        • товарные блоки (Планировщик старта, Маркировка и Документы РБ,
- *          Налоги и Контроль, SEO) → «Выкуп», % — уходит в калькуляторы
- *          покатушек и юнит-экономики;
- *        • блок «Аналитика ПВЗ и Логистика» → «Трафик», чел/день — уходит
- *          в форму окупаемости ПВЗ; товарный контекст блока при этом уступает
- *          место потоку клиентов, но первые три поля панели остаются на месте
- *          и работают как обычно (по ним считаются отгрузка, экосбор и габариты).
+ *   4) контекстный `<input id="global-context-input">`:
+ *        • товарные блоки и любые 60 позиций 713 → «Выкуп», % — уходит в
+ *          калькуляторы покатушек и юнит-экономики;
+ *        • позиция «Франшиза ПВЗ» и блок «Аналитика ПВЗ и Логистика»
+ *          → «Трафик», чел/день — уходит в форму окупаемости ПВЗ.
+ *
+ * Сквозная синхронизация лимитов 713: значение селекта — это id из справочника
+ * Постановления № 713, поэтому выбор сразу попадает и в `category` (его читают
+ * «Контроль цен (Пост. 713)» и мега-калькулятор), и в мосты категорий
+ * сплит-калькулятора и планировщика старта. Предельная надбавка берётся из того же
+ * справочника, поэтому панель и расчёты считают один и тот же процент.
+ *
+ * Выбор «Франшизы ПВЗ» дополнительно: переводит 4-й параметр в режим «Трафик»,
+ * обнуляет товарные параметры (себестоимость и количество) и открывает вкладку
+ * «Калькулятор ПВЗ WB» блока «Аналитика ПВЗ и Логистика».
  *
  * Связь двусторонняя: правка панели (события input и change) мгновенно
  * пересчитывает все калькуляторы, а правка того же поля в форме (через
- * useLinkedForm) обновляет цифру здесь. Пустые поля и буквы не проходят:
- * ввод санитайзится, чтение идёт через `parseFloat(value) || 0`.
- * Валюта панели — строго BYN.
+ * useLinkedForm) обновляет цифру здесь, включая категорию товара.
+ * Пустые поля и буквы не проходят: ввод санитайзится, чтение идёт через
+ * `parseFloat(value) || 0`. Валюта панели — строго BYN.
  */
 export function SharedVariablesPanel({ blockId }: { blockId?: string | null }) {
   const values = useSharedEconomics((state) => state.values);
@@ -44,14 +62,29 @@ export function SharedVariablesPanel({ blockId }: { blockId?: string | null }) {
   const setValues = useSharedEconomics((state) => state.setValues);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const contextMode = getGlobalContextMode(blockId);
-  const contextField = GLOBAL_CONTEXT_FIELDS[contextMode];
+  /** Значение селекта всегда существует в каталоге: старые значения из localStorage игнорируются */
+  const storedId = values[SHARED_KEYS.productCategory] ?? '';
+  const selectedId = getCatalogItem(storedId) ? storedId : DEFAULT_CATALOG_ITEM_ID;
+  const selectedItem = getCatalogItem(selectedId);
+
+  // 4-й параметр: трафик — для франшизы ПВЗ и для блока «Аналитика ПВЗ и Логистика»
+  const isPvzContext = isPvzFranchise(selectedId) || getGlobalContextMode(blockId) === 'pvz';
+  const contextField = GLOBAL_CONTEXT_FIELDS[isPvzContext ? 'pvz' : 'product'];
+
+  /** Открыть вкладку «Калькулятор ПВЗ WB» (блок «Аналитика ПВЗ и Логистика») */
+  const openPvzCalculator = useCallback(() => {
+    const section = useSectionStore.getState();
+    section.setCurrentBlock(PVZ_BLOCK_ID);
+    section.setActiveTab(PVZ_BLOCK_ID, PVZ_TAB_ID);
+  }, []);
 
   // Дефолты панели — источник истины для всех форм: если параметр ещё не задан,
   // записываем его дефолт в стор, иначе в панели и в калькуляторе были бы разные числа.
   useEffect(() => {
     const defaults: Record<string, string> = {
-      [SHARED_KEYS.productCategory]: DEFAULT_PRODUCT_CATEGORY_ID,
+      [SHARED_KEYS.productCategory]: DEFAULT_CATALOG_ITEM_ID,
+      // Тот же id уходит в поле категории форм 713 — предельная надбавка сразу в силе
+      [SHARED_KEYS.category]: DEFAULT_CATALOG_ITEM_ID,
       [GLOBAL_COST_FIELD.key]: GLOBAL_COST_FIELD.fallback,
       [GLOBAL_QTY_FIELD.key]: GLOBAL_QTY_FIELD.fallback,
       [GLOBAL_CONTEXT_FIELDS.product.key]: GLOBAL_CONTEXT_FIELDS.product.fallback,
@@ -65,6 +98,62 @@ export function SharedVariablesPanel({ blockId }: { blockId?: string | null }) {
     // Один раз на монтирование: дальше значения живут в сторе и меняются только вводом.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /**
+   * Выбор товара на панели.
+   *
+   * Обычная категория 713: её id уходит и в общую переменную товара, и в поле
+   * категории форм Пост. 713 — обе формы мгновенно берут свой предельный процент.
+   * Франшиза ПВЗ: лимита 713 у услуги нет, поэтому в формы 713 уходит ручной ввод,
+   * товарные параметры обнуляются, а пользователь попадает на калькулятор ПВЗ.
+   */
+  const selectProduct = useCallback(
+    (id: string) => {
+      const item = getCatalogItem(id);
+      if (!item) return;
+
+      if (item.pvz) {
+        setValues({
+          [SHARED_KEYS.productCategory]: id,
+          [SHARED_KEYS.category]: PRICE_CONTROL_CUSTOM_ID,
+          [GLOBAL_COST_FIELD.key]: '0',
+          [GLOBAL_QTY_FIELD.key]: '0',
+        });
+        openPvzCalculator();
+        return;
+      }
+
+      const current = useSharedEconomics.getState().values;
+      const patch: Record<string, string> = {
+        [SHARED_KEYS.productCategory]: id,
+        [SHARED_KEYS.category]: id,
+      };
+      // Возврат товарных параметров после режима франшизы ПВЗ: обнулённые значения
+      // не должны молча оставаться нулевыми в экономике.
+      if (!current[GLOBAL_COST_FIELD.key] || parseFloat(current[GLOBAL_COST_FIELD.key]) === 0) {
+        patch[GLOBAL_COST_FIELD.key] = GLOBAL_COST_FIELD.fallback;
+      }
+      if (!current[GLOBAL_QTY_FIELD.key] || parseFloat(current[GLOBAL_QTY_FIELD.key]) === 0) {
+        patch[GLOBAL_QTY_FIELD.key] = GLOBAL_QTY_FIELD.fallback;
+      }
+      setValues(patch);
+    },
+    [setValues, openPvzCalculator]
+  );
+
+  // Форма → панель: категория, выбранная в «Контроле цен (Пост. 713)» или в
+  // мега-калькуляторе, тут же отражается в главном селекте панели.
+  // Ручной ввод лимита и режим франшизы ПВЗ сюда не попадают: они не являются
+  // выбором товара, иначе они бы затёрли позицию «Франшиза ПВЗ» в селекте.
+  const formCategory = values[SHARED_KEYS.category] ?? '';
+  useEffect(() => {
+    if (formCategory === PRICE_CONTROL_CUSTOM_ID) return;
+    const item = getCatalogItem(formCategory);
+    if (!item || item.pvz) return;
+    const current = useSharedEconomics.getState().values[SHARED_KEYS.productCategory];
+    if (current === formCategory || isPvzFranchise(current)) return;
+    setValue(SHARED_KEYS.productCategory, formCategory);
+  }, [formCategory, setValue]);
 
   /**
    * Запись числового поля: только цифры и одна точка, защита от букв и мусора.
@@ -104,20 +193,29 @@ export function SharedVariablesPanel({ blockId }: { blockId?: string | null }) {
       <h2 className="shared-var__title">↔ СКВОЗНЫЕ ПЕРЕМЕННЫЕ</h2>
 
       <div className="shared-var__row">
-        <label className="shared-var__field" htmlFor="global-category">
+        <label
+          className="shared-var__field shared-var__field--product"
+          htmlFor="global-category"
+        >
           <span className="shared-var__label">Товар</span>
-          <select
-            id="global-category"
-            className="shared-var__select"
-            value={values[SHARED_KEYS.productCategory] ?? DEFAULT_PRODUCT_CATEGORY_ID}
-            onChange={(event) => setValue(SHARED_KEYS.productCategory, event.currentTarget.value)}
-          >
-            {PRODUCT_CATEGORIES.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.label}
-              </option>
-            ))}
-          </select>
+          <span className="shared-var__control">
+            <select
+              id="global-category"
+              className="shared-var__select"
+              value={selectedId}
+              onChange={(event) => selectProduct(event.currentTarget.value)}
+            >
+              {PRODUCT_CATALOG_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.items.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </span>
         </label>
 
         <NumberField
@@ -142,6 +240,15 @@ export function SharedVariablesPanel({ blockId }: { blockId?: string | null }) {
           context
         />
       </div>
+
+      {/* Лимит Постановления № 713 выбранной позиции — тот же процент считают формы ниже */}
+      {selectedItem && (
+        <p className="shared-var__hint">
+          {selectedItem.pvz
+            ? 'Франшиза ПВЗ: лимит Пост. 713 не применяется, 4-й параметр — трафик ПВЗ'
+            : `Пост. 713: надбавка не более ${selectedItem.limitPercent}% · категория подставлена в формы контроля цен`}
+        </p>
+      )}
     </div>
   );
 }

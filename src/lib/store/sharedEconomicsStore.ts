@@ -18,12 +18,19 @@ import { persist, createJSONStorage } from 'zustand/middleware';
  * Панель «↔ СКВОЗНЫЕ ПЕРЕМЕННЫЕ» (src/components/layout/SharedVariablesPanel.tsx)
  * показывает ровно 4 параметра, которые подставляются во все формы проекта:
  *
- *   1) Товар       — справочник категорий (select, влияет на комиссию WB);
+ *   1) Товар       — полная база категорий Постановления № 713, сгруппированная
+ *                     по секторам в <optgroup> (см. src/lib/services/productCatalog.ts);
  *   2) Себестоимость — BYN за 1 единицу;
  *   3) Количество   — объём партии, шт;
  *   4) контекстный параметр, который зависит от открытого блока:
  *        • товарные блоки (Планировщик старта, Маркировка, Налоги) → «Выкуп», %;
- *        • блок «Аналитика ПВЗ и Логистика»                     → «Трафик», чел/день.
+ *        • блок «Аналитика ПВЗ и Логистика» и позиция «Франшиза ПВЗ»
+ *          из каталога                                                   → «Трафик», чел/день.
+ *
+ * Выбор товара в панели — это id из справочника 713, поэтому он уходит сразу и в
+ * `category` (формы «Контроль цен Пост. 713» и мега-калькулятор читают его через
+ * ссылки MEGA_LINKS/PRICE_CONTROL_LINKS), и в мосты категорий сплит-калькулятора
+ * и планировщика старта: предельная надбавка 713 подставляется в формы мгновенно.
  *
  * Связь двусторонняя: правка панели уходит во все инструменты, а правка того же поля
  * в форме обновляет панель. Все денежные значения — строго BYN.
@@ -56,7 +63,7 @@ export const SHARED_KEYS = {
   batchVolume: 'batchVolume',
   /** Процент выкупа, % */
   buyoutRate: 'buyoutRate',
-  /** Товар панели: id из PRODUCT_CATEGORIES (category — справочник Постановления № 713) */
+  /** Товар панели: id из каталога productCatalog (позиция 713 либо GLOBAL_PVZ_CATEGORY_ID) */
   productCategory: 'productCategory',
   /** Поток клиентов ПВЗ, чел/день */
   traffic: 'traffic',
@@ -84,26 +91,6 @@ export const SHARED_KEYS = {
 } as const;
 
 export type SharedKey = (typeof SHARED_KEYS)[keyof typeof SHARED_KEYS];
-
-/**
- * Базовый справочник товаров панели.
- * Порядок вывода в select фиксирован: id не меняются, на них завязаны
- * отображения категории в калькуляторе акций и подсказки.
- */
-export interface ProductCategory {
-  id: string;
-  label: string;
-}
-
-export const PRODUCT_CATEGORIES: ProductCategory[] = [
-  { id: 'clothes', label: 'Одежда' },
-  { id: 'shoes', label: 'Обувь' },
-  { id: 'electronics', label: 'Электроника' },
-  { id: 'household', label: 'Хозтовары' },
-  { id: 'pvz', label: 'ПВЗ' },
-];
-
-export const DEFAULT_PRODUCT_CATEGORY_ID = PRODUCT_CATEGORIES[0].id;
 
 /** Описание числового поля панели: подпись, единица, шаг и дефолт */
 export interface GlobalFieldMeta {

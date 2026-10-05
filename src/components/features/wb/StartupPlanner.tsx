@@ -16,6 +16,10 @@ import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
 import { useLinkedForm, PLANNER_LINKS } from '@/lib/hooks/useLinkedForm';
 import { SHARED_KEYS, useSharedEconomics } from '@/lib/store/sharedEconomicsStore';
+import {
+  CATALOG_BY_PLANNER_CATEGORY,
+  PLANNER_CATEGORY_BY_CATALOG_ID,
+} from '@/lib/services/productCatalog';
 import { BudgetDonut } from './StartupPlannerChart';
 import type { Feature } from '@/types/section';
 import { jsPDF } from 'jspdf';
@@ -292,29 +296,13 @@ function registerPdfFont(doc: jsPDF) {
 }
 
 /**
- * Мост между компактным справочником товаров панели «СКВОЗНЫЕ ПЕРЕМЕННЫЕ»
- * (Одежда, Обувь, Электроника, Хозтовары, ПВЗ) и подробным справочником
- * планировщика с сертификацией и маркировкой.
+ * Мост между каталогом товаров панели «СКВОЗНЫЕ ПЕРЕМЕННЫЕ» (полная база
+ * категорий Постановления № 713) и подробным справочником планировщика с
+ * сертификацией и маркировкой. Сопоставление — по названию категории 713;
+ * позиции, которых нет в Постановлении (электроника, мебель, инструменты,
+ * автотовары, бижутерия), намеренно не сопоставлены: выбор в панели тогда
+ * ничего не меняет, вместо того чтобы уводить форму в чужую категорию.
  */
-const PLANNER_CATEGORY_BY_PRODUCT: Record<string, string> = {
-  clothes: 'cloth_marked',
-  shoes: 'shoes_all',
-  electronics: 'gadgets',
-  household: 'household_chem',
-};
-
-const PRODUCT_BY_PLANNER_GROUP: Record<string, string> = {
-  'Одежда и текстиль': 'clothes',
-  'Электроника и техника': 'electronics',
-  'Дом, кухня и ремонт': 'household',
-};
-
-/** Категория планировщика → товар панели: обувь внутри своей группы, остальное — по группе */
-function resolvePlannerProduct(categoryId: string): string | undefined {
-  if (categoryId === 'shoes_all') return 'shoes';
-  return PRODUCT_BY_PLANNER_GROUP[getCategoryMeta(categoryId).group];
-}
-
 export default function StartupPlanner({ feature }: { feature: Feature }) {
   // Закупочная цена и объём партии сквозные: правка панели и правка здесь — одно число.
   const { form, setForm } = useLinkedForm<PlannerForm>(DEFAULT_FORM, PLANNER_LINKS);
@@ -325,15 +313,15 @@ export default function StartupPlanner({ feature }: { feature: Feature }) {
 
   // Панель → планировщик: товар из панели подставляет свою категорию
   useEffect(() => {
-    const category = PLANNER_CATEGORY_BY_PRODUCT[productCategory];
+    const category = PLANNER_CATEGORY_BY_CATALOG_ID[productCategory];
     if (!category) return;
     setForm((prev) => (prev.category === category ? prev : { ...prev, category }));
   }, [productCategory, setForm]);
 
-  // Планировщик → панель: категория планировщика отражается в справочнике товаров
+  // Планировщик → панель: категория планировщика отражается в главном селекте панели
   const lastSyncedCategory = useRef(form.category);
   useEffect(() => {
-    const product = resolvePlannerProduct(form.category);
+    const product = CATALOG_BY_PLANNER_CATEGORY[form.category];
     if (!product || productCategory === product || lastSyncedCategory.current === form.category) {
       lastSyncedCategory.current = form.category;
       return;

@@ -6,6 +6,10 @@ import { cn } from '@/lib/utils';
 import { SectionContentWrapper } from '@/components/layout/SectionContent';
 import { useLinkedForm, SPLIT_LINKS } from '@/lib/hooks/useLinkedForm';
 import { SHARED_KEYS, useSharedEconomics } from '@/lib/store/sharedEconomicsStore';
+import {
+  CATALOG_BY_SPLIT_CATEGORY,
+  SPLIT_CATEGORY_BY_CATALOG_ID,
+} from '@/lib/services/productCatalog';
 import type { Feature } from '@/types/section';
 
 export interface SplitCategory {
@@ -218,25 +222,13 @@ const TONE_MESSAGES: Record<StatusTone, (profit: number) => string> = {
 };
 
 /**
- * Мост между компактным справочником товаров панели «СКВОЗНЫЕ ПЕРЕМЕННЫЕ»
- * (Одежда, Обувь, Электроника, Хозтовары, ПВЗ) и подробным справочником
- * категорий WB с комиссиями. Значение «ПВЗ» — это услуга пункта выдачи,
- * товарной категории у неё нет, поэтому она ничего не меняет.
+ * Мост между каталогом товаров панели «СКВОЗНЫЕ ПЕРЕМЕННЫЕ» (полная база
+ * категорий Постановления № 713) и подробным справочником категорий WB с
+ * комиссиями. Сопоставление строится по названию категории в справочнике 713,
+ * поэтому лимит надбавки панели и комиссия формы относятся к одной позиции.
+ * Франшиза ПВЗ — услуга пункта выдачи, товарной категории у неё нет, поэтому
+ * она ничего не меняет.
  */
-const SPLIT_CATEGORY_BY_PRODUCT: Record<string, string> = {
-  clothes: 'clothes_top',
-  shoes: 'shoes',
-  electronics: 'smartphones',
-  household: 'household_chemistry',
-};
-
-const PRODUCT_BY_SPLIT_CATEGORY: Record<string, string> = Object.entries(
-  SPLIT_CATEGORY_BY_PRODUCT
-).reduce<Record<string, string>>((acc, [product, category]) => {
-  acc[category] = product;
-  return acc;
-}, {});
-
 export default function SplitCalculator({ feature }: { feature: Feature }) {
   const { form, setForm } = useLinkedForm<FormState>(DEFAULT_FORM, SPLIT_LINKS);
   const productCategory = useSharedEconomics((state) => state.values[SHARED_KEYS.productCategory] ?? '');
@@ -244,15 +236,15 @@ export default function SplitCalculator({ feature }: { feature: Feature }) {
 
   // Панель → форма: выбор товара в панели подставляет свою категорию WB с комиссией
   useEffect(() => {
-    const category = SPLIT_CATEGORY_BY_PRODUCT[productCategory];
+    const category = SPLIT_CATEGORY_BY_CATALOG_ID[productCategory];
     if (!category) return;
     setForm((prev) => (prev.category === category ? prev : { ...prev, category }));
   }, [productCategory, setForm]);
 
-  // Форма → панель: выбор категории в форме отражается в справочнике товаров
+  // Форма → панель: выбор категории в форме отражается в главном селекте панели
   const lastSyncedCategory = useRef(form.category);
   useEffect(() => {
-    const product = PRODUCT_BY_SPLIT_CATEGORY[form.category];
+    const product = CATALOG_BY_SPLIT_CATEGORY[form.category];
     if (!product || productCategory === product || lastSyncedCategory.current === form.category) {
       lastSyncedCategory.current = form.category;
       return;
