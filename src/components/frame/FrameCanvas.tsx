@@ -440,12 +440,25 @@ export function FrameCanvas({ className, beginDragRef }: FrameCanvasProps) {
 
   /** Нажатие по пустой схеме — снимает выделение */
   const handleBackgroundPointerDown = useCallback(
-    (event: React.PointerEvent) => {
+    (event: React.PointerEvent<SVGSVGElement>) => {
       selectElement(null);
       updateDrag(event.clientX, event.clientY);
     },
     [selectElement, updateDrag]
   );
+
+  /*
+   * Глобальные обработчики указателя принимают координаты, а не событие:
+   * их навешивает useDragController на window, а не React. Обёртка ниже
+   * переводит событие React в пару чисел — иначе типы не совпадут, а
+   * поведение будет зависеть от того, кто подписался.
+   */
+  const handleCanvasPointerMove = useCallback(
+    (event: React.PointerEvent<SVGSVGElement>) => updateDrag(event.clientX, event.clientY),
+    [updateDrag]
+  );
+  const handleCanvasPointerUp = useCallback(() => endDrag(), [endDrag]);
+  const handleCanvasPointerCancel = useCallback(() => cancelDrag(), [cancelDrag]);
 
   const halfL = (lengthM * 1000) / 2;
   const halfD = (depthM * 1000) / 2;
@@ -461,9 +474,9 @@ export function FrameCanvas({ className, beginDragRef }: FrameCanvasProps) {
         role="img"
         aria-label={`Схема каркасного дома ${lengthM} на ${depthM} метров, проёмов: ${elements.length}`}
         onPointerDown={handleBackgroundPointerDown}
-        onPointerMove={updateDrag}
-        onPointerUp={endDrag}
-        onPointerCancel={cancelDrag}
+        onPointerMove={handleCanvasPointerMove}
+        onPointerUp={handleCanvasPointerUp}
+        onPointerCancel={handleCanvasPointerCancel}
       >
         {/* Фон чертежа */}
         <rect x="-100000" y="-100000" width="200000" height="200000" fill="var(--kc-bg)" />

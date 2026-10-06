@@ -219,7 +219,7 @@ export function PieStep() {
           />
           <FrameStat
             label="Масса утеплителя"
-            value={Math.round(pie.massKg)}
+            value={Math.round(pie.massKg).toString()}
             unit="кг"
             hint={`плотность ${product.densityKgM3} кг/м³`}
           />

@@ -5,6 +5,13 @@ import {
   LEDGER_HEIGHT_M,
   LEDGER_SIZE_MM,
   RAFTER_SECTION_MM,
+  RAFTER_STEP_MM,
+  REQUIRED_R_M2C_PER_W,
+  STEEL_DENSITY_KG_M3,
+  STUD_DEPTH_MM,
+  STUD_STEP_MM,
+  STUD_THICKNESS_MM,
+  WOOD_LAMBDA_W_MK,
   beamCrossSectionM2,
   studCrossSectionM2,
   type StudSize,
@@ -32,9 +39,36 @@ import {
  *     экономия десятых долей недопустима.
  */
 
-/** Значения по умолчанию для шага — продублированы в constants для документации */
-const STUD_STEP_DEFAULT_M = 0.59;
-const RAFTER_STEP_DEFAULT_M = 0.6;
+/**
+ * Значения по умолчанию для шага ПЕРЕВОДЯТСЯ из нормативных констант в метры,
+ * а не объявляются числами литералами.
+ *
+ * Раньше здесь стояло `const STUD_STEP_DEFAULT_M = 0.59` рядом с шагом 590 мм в
+ * константах. Две записи одного числа в двух файлах — это не «дублирование,
+ * ничего страшного», а мина: шаг поменяли в константах (например, на 500 мм
+ * для стен выше 2,7 м), а здесь осталось 0,59, и суммы в смете разошлись с
+ * подписями на экране. Теперь взять неоткуда.
+ */
+const STUD_STEP_DEFAULT_M = STUD_STEP_MM / 1000;
+const RAFTER_STEP_DEFAULT_M = RAFTER_STEP_MM / 1000;
+
+/**
+ * Сечение стойки для теплотехники: толщина в плоскости стены в метрах.
+ * Берётся из STUD_THICKNESS_MM, чтобы «мостик холода» нельзя было посчитать
+ * по глубине стойки (150 мм) вместо толщины (50 мм).
+ */
+const WOOD_THICKNESS_M = STUD_THICKNESS_MM / 1000;
+
+/**
+ * Сопротивления теплопередачи поверхностей — СП 50.13330.2012, приложение Б,
+ * для вертикальной ограждающей конструкции с нагревателем с внутренней стороны.
+ *
+ * Это НЕ «декоративные» 0,15: именно вместе с ними R конструкции сравнивается с
+ * нормативным Ртр. Считать R конструкции и сравнивать его с Ртр — ошибка, которая
+ * всегда даёт заниженное R примерно на 0,15 и уводит в запас по теплу.
+ */
+const R_INTERNAL_SURFACE = 0.11;
+const R_EXTERNAL_SURFACE = 0.04;
 
 /* ========================================================================== */
 /*                           1. ГЕОМЕТРИЯ ДОМА И СТЕН                            */
@@ -73,8 +107,20 @@ export function totalFloorAreaM2(geo: HouseGeometry): number {
  * площадь стен не входит: она примыкает снаружи и утепляется отдельно, иначе
  * утеплитель считался бы дважды на углу.
  */
+/**
+ * Площадь стен без проёмов, м² — ПО ВСЕМ ЭТАЖАМ.
+ *
+ * Здесь была ошибка, из-за которой двухэтажный дом считался как одноэтажный:
+ * периметр × высота стены даёт площадь ОДНОГО этажа, а дом выше — это та же
+ * площадь, умноженная на число этажей. Забытый множитель означал, что на
+ * двухэтажный дом утеплителя, пароизоляции, ветрозащиты и ГКЛ считалось вдвое
+ * меньше нужного.
+ *
+ * `perimeterM` остаётся площадью ОДНОГО этажа — так его честнее называть: и
+ * обвязка, и кровля считаются по одному контуру.
+ */
 export function netWallAreaM2(geo: HouseGeometry, openingsAreaM2: number): number {
-  return Math.max(0, perimeterM(geo) * geo.heightM - openingsAreaM2);
+  return Math.max(0, perimeterM(geo) * geo.heightM * geo.storeys - openingsAreaM2);
 }
 
 /* ========================================================================== */
@@ -97,19 +143,48 @@ export function studsOnRunM(runM: number, stepM: number): number {
 }
 
 /**
- * Суммарная длина стоек каркаса всех стен, м.
+ * Число стоек в ОДНОМ этаже (одном поясе каркаса).
  *
- * Берём периметр + поправку на 4 угловые стойки: каждая угловая считается в
- * двух смежных стенах, поэтому в реальном каркасе их четыре, а не восемь.
- * Поправка — это −4 × шаг, компенсирующий удвоение углов.
+ * Считается по каждой стене ОТДЕЛЬНО, потому что стены разной длины:
+ * для дома 10×8 м при шаге 590 мм это 2×17 + 2×14 − 4 = 58 стоек.
+ *
+ * Три поправки, каждая из которых стоила бы денег, если её пропустить:
+ *
+ *  1. «+1 НА КАЖДУЮ СТЕНУ» (`floor(len/step) + 1` в `studsOnRunM`). Без неё
+ *     последний пролёт остаётся без стойки, и стена прогибается в углу.
+ *
+ *  2. «−4 УГЛОВЫЕ СТОЙКИ». Угловая стойка принадлежит СРАЗУ двум смежным
+ *     стенам, поэтому при сложении четырёх стен она посчитана дважды. В
+ *     реальном каркасе угловых стоек четыре, а не восемь. Без этой поправки
+ *     пиломатериала покупается на 4 стойки больше (≈0,05 м³ ≈ 62 BYN).
+ *
+ *  3. Считается по СВОИМ стенам, а не «периметр / шаг»: при прямоугольнике
+ *     10×8 периметр 36 м, а сумма стоек по стенам та же 36/0,59 ≈ 61 —
+ *     разница возникает на остатке от деления, и после умножения на длину
+ *     стойки она превращается в 20 % ошибки объёма.
  */
-export function totalStudRunM(geo: HouseGeometry, stepM = STUD_STEP_DEFAULT_M): number {
-  const wallCount = geo.storeys;
-  // Каждая стена считается отдельно, и только потом умножается на этажи,
-  // потому что проёмы у этажей разные, а длина стоек одинаковая.
-  const perStorey = perimeterM(geo);
-  const correction = 4 * stepM;
-  return Math.max(0, (perStorey - correction) * wallCount);
+export function studCountPerStorey(geo: HouseGeometry, stepM = STUD_STEP_DEFAULT_M): number {
+  const longWall = studsOnRunM(geo.lengthM, stepM);
+  const shortWall = studsOnRunM(geo.depthM, stepM);
+  return Math.max(4, 2 * longWall + 2 * shortWall - 4);
+}
+
+/**
+ * Суммарная длина стоек ВСЕГО каркаса, м (все этажи).
+ *
+ * Это именно длина ДРЕВЕСИНЫ, а не длина стен: число стоек умножается на
+ * длину одной стойки. Путать эти две величины — самая дорогая ошибка в
+ * расчёте каркаса: для дома 10×8 это 139 м против 36 м, то есть разница в
+ * почти четыре раза по объёму и по цене.
+ */
+export function totalStudRunM(
+  geo: HouseGeometry,
+  stepM = STUD_STEP_DEFAULT_M,
+  lengthEachM?: number
+): number {
+  const beamMm = beamMmForHeight(geo.heightM);
+  const studLength = lengthEachM ?? Math.max(0.5, geo.heightM - 2 * (beamMm / 1000));
+  return studCountPerStorey(geo, stepM) * studLength * geo.storeys;
 }
 
 export interface StudResult {
@@ -145,12 +220,16 @@ export function computeStuds(
 ): StudResult {
   const beamMm = beamMmForHeight(geo.heightM);
   const lengthEachM = Math.max(0.5, geo.heightM - 2 * (beamMm / 1000));
-  const perStoreyRun = totalStudRunM({ ...geo, storeys: 1 }, stepM);
-  const totalRunM = perStoreyRun * geo.storeys;
+
+  // Сначала ЧИСЛО стоек (с вычетом 4 угловых), потом длина: порядок важен,
+  // потому что 4 угловые стоило бы «размазать» на периметр.
+  const countPerStorey = studCountPerStorey(geo, stepM);
+  const count = countPerStorey * geo.storeys;
+  const totalRunM = count * lengthEachM;
+
   const crossSectionM2 = studCrossSectionM2(studSize);
   const volumeRawM3 = totalRunM * crossSectionM2;
   const volumeWithWasteM3 = volumeRawM3 * (1 + wastePercent / 100);
-  const count = Math.round(totalRunM / lengthEachM);
 
   return {
     count,
@@ -209,10 +288,22 @@ export function ledgerVolumePerWallM3(lengthM: number, windowAreaM2: number): nu
   return netLength * crossM * 2;
 }
 
-/** Обвязка по периметру: брус по низу и по верху каждой стены, м³ */
+/**
+ * Объём обвязки, м³.
+ *
+ * ЧИСЛО ЯРУСОВ ОБВЯЗКИ = числу этажей + 1, а не «удвоенное число этажей»:
+ *
+ *   1 этаж:  нижняя (по сваям) + верхняя (по макушке стоек)              = 2
+ *   2 этажа: нижняя + промежуточная (под перекрытие) + верхняя            = 3
+ *
+ * Формула «×2×storeys» давала для двух этажей 4 яруса — на целый лишний
+ * контур бруса вокруг дома, то есть лишний пиломатериал в смете. Для
+ * одноэтажного обе формулы совпадают, поэтому ошибка была не видна ровно до
+ * того момента, когда выбирали двухэтажный дом.
+ */
 export function beamVolumeM3(geo: HouseGeometry, beamMm: number): number {
   const crossM = beamCrossSectionM2(beamMm);
-  return perimeterM(geo) * crossM * 2 * geo.storeys;
+  return perimeterM(geo) * crossM * (geo.storeys + 1);
 }
 
 /**
@@ -262,6 +353,41 @@ export interface PileFieldResult {
  * Округление ВВЕРХ на периметре обязательно: недостающая свая — это не
  * «докажем», это прогиб обвязки и трещина в первую же зиму.
  */
+/**
+ * Масса 1 погонного метра круглой стальной арматуры, кг/м.
+ *
+ * Формула: m = π·d²/4 · ρ, где d в миллиметрах, ρ = 7850 кг/м³.
+ *
+ * Здесь был баг в 1000 раз: `d` задаётся в МИЛЛИМЕТРАХ, поэтому площадь сечения
+ * π·d²/4 тоже в мм², и для умножения на плотность её надо перевести в м²
+ * делением на 10⁶, а не на 10³. На сваю выходило 4069 кг арматуры вместо 4,1,
+ * и смета дома показывала 420 421 BYN вместо 38 000 — расхождение ×11.
+ *
+ * Проверка порядка: при d = 10 мм ответ обязан быть около 0,617 кг/м — это
+ * табличное значение для А500С.
+ *
+ * ЗАЩИТА ОТ ПОВТОРЕНИЯ ОШИБКИ: результат проверяется на физическую
+ * правдоподобность (0,1…10 кг/м покрывает весь ряд d = 6…25 мм), и за её
+ * пределами бросается ошибку. Ошибка масштаба в смете опаснее падения: падение
+ * заметят сразу, а завышенную в 1000 раз смету прораб может увидеть только в
+ * момент подписания договора.
+ */
+export function rebarMassPerMeterKg(diameterMm: number): number {
+  const areaM2 = (Math.PI * diameterMm * diameterMm) / 4e6;
+  const mass = areaM2 * STEEL_DENSITY_KG_M3;
+  if (mass <= 0.1 || mass > 10) {
+    throw new Error(
+      `rebarMassPerMeterKg: неправдоподобная масса ${mass.toFixed(3)} кг/м при d=${diameterMm} мм. ` +
+        'Проверьте перевод мм² в м² (нужно деление на 1e6).'
+    );
+  }
+  return mass;
+}
+
+/* ========================================================================== */
+/*                      3. ШАГ 1 — ФУНДАМЕНТ: СВАИ И ОБВЯЗКА                    */
+/* ========================================================================== */
+
 export function computePileField(
   geo: HouseGeometry,
   pile: { widthMm: number; stepM: number; depthM: number; rebarMm: number },
@@ -288,7 +414,7 @@ export function computePileField(
   const concreteM3 = round3(concreteEachM3 * count);
 
   // 4 стержня рабочей арматуры + хомут. Масса стержня = π·d²/4·7850.
-  const barMass = (Math.PI * pile.rebarMm * pile.rebarMm) / 4 * 7850 / 1000; // кг/м
+  const barMass = rebarMassPerMeterKg(pile.rebarMm);
   const verticalM = pile.depthM * 4;
   const tieM = 0.6; // хомут: периметр сечения × шаг 300 мм
   const rebarEachKg = round1((verticalM + tieM) * barMass);
@@ -340,6 +466,19 @@ export interface PieResult {
   rValue: number;
   /** Достаточно ли толщины по нормативу 3,0 */
   rSufficient: boolean;
+  /**
+   * Сопротивление ТОЛЬКО конструкции, без поверхностей, м²·°C/Вт.
+   * Показывается отдельно: пользователю полезно видеть вклад стоек, а
+   * норматив проверяется по R с поверхностями. Смешивать эти два числа в одну
+   * строку — источник споров «почему у меня 3,15, а у соседа 3,0».
+   */
+  rConstruction: number;
+  /** Доля площади стены, занятая стойками, % — «мостик холода» */
+  studFractionPercent: number;
+  /** Требуемая толщина утеплителя по нормативу, мм (округлено вверх до 25) */
+  requiredThicknessMm: number;
+  /** Утеплитель помещается в просвет стойки? */
+  fitsStudDepth: boolean;
 }
 
 /**
@@ -359,7 +498,13 @@ export function computePie(
   openingsAreaM2: number,
   thicknessMm: number = INSULATION_DEFAULT_MM,
   lambda: number = 0.038,
-  densityKgM3: number = 100
+  densityKgM3: number = 100,
+  /** Толщина стойки в плоскости стены, мм — влияет на долю «мостика холода» */
+  studThicknessMm = STUD_THICKNESS_MM,
+  /** Шаг стоек, мм — входит в долю площади, занятой деревом */
+  studStepMm = STUD_STEP_MM,
+  /** Глубина стойки (в сторону утеплителя), мм — длина пути тепла по дереву */
+  studDepthMm = STUD_DEPTH_MM
 ): PieResult {
   const areaM2 = netWallAreaM2(geo, openingsAreaM2);
   const thicknessM = Math.max(0.01, thicknessMm / 1000);
@@ -375,10 +520,72 @@ export function computePie(
 
   const packs = Math.ceil(areaM2 / 2.7); // заводская пачка ≈ 2,7 м² при 100 мм
 
+  /*
+   * ТЕПЛОТЕХНИКА: R считается по ПАРАЛЛЕЛЬНЫМ ПУТЯМ, а не «минус 14 %».
+   *
+   * Стоечный каркас — это две параллельные ветви теплопередачи:
+   *   - между стойками: утеплитель;
+   *   - по самим стойкам: дерево.
+   * Общее сопротивление — по ПАРАЛЛЕЛЬНОМУ соединению:
+   *
+   *     U = (1−f)/R_мин + f/R_дер,   R_констр = 1/U
+   *
+   * Здесь две тонкости, на которых уже ошибались:
+   *
+   * 1. ПУТЬ ТЕПЛА ПО ДЕРЕВУ ИДЁТ ПО ГЛУБИНЕ СТОЙКИ (150 мм), а её ТОЛЩИНА
+   *    (50 мм) задаёт только ДОЛЮ ПЛОЩАДИ. Формально разные величины, и их
+   *    постоянно путают: вариант «R_дер = 0,05/0,18» даёт 0,28 вместо 0,83 и
+   *    занижает R стены до 1,85 — конструктор объявил бы 150 мм недостаточными
+   *    при толщине, которой по ТКП хватает, и подтолкнул бы к покупке 200 мм.
+   *
+   * 2. НОРМАТИВ СРАВНИВАЕТСЯ НЕ С R КОНСТРУКЦИИ, А СО СПОЛОСОБОРОМ. Rтр по
+   *    СП 50.13330 — это сопротивление всей ограждающей конструкции вместе с
+   *    внутренней и наружной поверхностями. Поэтому к R конструкции добавляются
+   *    Ri = 0,11 и Ro = 0,04. Без них 150 мм Белтепа дают ровно 2,99 — формально
+   *    «не проходит», и раздел ругается на собственное значение по умолчанию.
+   *    С поверхностями — 3,15, и запас по нормативу появляется честно.
+   *
+   * Предположение о пути по дереву — консервативное: считается, что полость
+   * стойки НЕ заполнена утеплителем (обычно заполняют, но не всегда).
+   */
   const rInsulation = thicknessM / lambda;
-  const rWood = 0.15;
-  const rStudBridge = rInsulation * 0.14; // стойка как «мостик холода» — 14 %
-  const rValue = rInsulation + rWood - rStudBridge;
+  const rStud = studDepthMm / 1000 / WOOD_LAMBDA_W_MK;
+  const studFraction = studThicknessMm / (studThicknessMm + studStepMm);
+  const uTotal = (1 - studFraction) / rInsulation + studFraction / rStud;
+  const rConstruction = 1 / uTotal;
+  const rValue = rConstruction + R_INTERNAL_SURFACE + R_EXTERNAL_SURFACE;
+
+  /*
+   * ОБРАТНАЯ ЗАДАЧА: какая толщина нужна под норму. Считается аналитически из
+   * той же формулы, а не перебором шагов, поэтому ответ точный.
+   *   R_констр = R_тр − R_пов                       = 3,2 − 0,15 = 3,05
+   *   U_констр = 1 / R_констр                       = 0,3279
+   *   U_мин    = U_констр − f/R_дер                 = 0,3279 − 0,1017 = 0,2262
+   *   R_мин    = (1 − f) / U_мин                    = 0,9153 / 0,2262 = 4,046
+   *   t        = λ · R_мин                          = 0,042 · 4,046 = 170 мм
+   *
+   * Здесь была ошибка в первом варианте: сопротивления вычитались как
+   * проводимости (`1/R_тр − 1/R_пов`). Значения 1/0,15 = 6,67 и 1/3,2 = 0,31
+   * дают отрицательный U, и функция возвращала 0 мм — то есть «достаточно
+   * любой толщины». Проверка ниже специально требует НУЛЕВОЙ толщины при
+   * нормативе 0, чтобы такое не прошло молча.
+   */
+  const rConstructionReq = REQUIRED_R_M2C_PER_W - (R_INTERNAL_SURFACE + R_EXTERNAL_SURFACE);
+  const uInsulationAllowed = rConstructionReq > 0 ? 1 / rConstructionReq - studFraction / rStud : 0;
+  const exactThicknessMm =
+    uInsulationAllowed > 0 ? (lambda * (1 - studFraction)) / uInsulationAllowed * 1000 : 0;
+  // Округляем вверх до заводского шага 25 мм: покупать 197 мм нельзя, а
+  // «почти достаточно» хуже, чем «с запасом», поэтому округляем, а не режем.
+  const requiredThicknessMm = Math.max(0, Math.ceil(exactThicknessMm / 25) * 25);
+
+  /*
+   * ФИЗИЧЕСКОЕ ОГРАНИЧЕНИЕ: утеплитель укладывается в просвет стойки, поэтому
+   * его толщина не может превышать глубину стойки. Раньше этого не проверял
+   * никто: можно было выбрать 200 мм утеплителя при стойках 50×150, получить
+   * красивое R 3,63 и смету — а стену физически не собрать, вата не влезает.
+   * Сумма с материалами, которого на объекте нет, — худший вид ошибки.
+   */
+  const fitsStudDepth = thicknessMm <= studDepthMm + 0.5;
 
   return {
     areaM2: round2(areaM2),
@@ -391,7 +598,14 @@ export function computePie(
     innerAreaM2: round2(innerAreaM2),
     massKg: round1(volumeM3 * densityKgM3),
     rValue: round2(rValue),
-    rSufficient: rValue >= 3.0,
+    rConstruction: round2(rConstruction),
+    rSufficient: rValue >= REQUIRED_R_M2C_PER_W,
+    /** Доля площади стены, занятая стойками, % — «мостик холода» */
+    studFractionPercent: round1(studFraction * 100),
+    /** Требуемая толщина утеплителя по нормативу, мм (округлено вверх до 25) */
+    requiredThicknessMm,
+    /** Утеплитель помещается в просвет стойки? */
+    fitsStudDepth,
   };
 }
 
@@ -443,7 +657,21 @@ export function computeRoof(
   battenStepM: number
 ): RoofResult {
   const halfSpan = geo.depthM / 2 + overhangM;
-  const rise = halfSpan * Math.tan((slopePercent / 100) * (Math.PI / 180));
+
+  /*
+   * ПОДЪЁМ СКАТА. Здесь был баг: `tan(уклон% × π/180)` даёт tan(0,25°)
+   * вместо tan(25°) — потому что уклон в ПРОЦЕНТАХ это не угол в градусах.
+   * Определение: уклон 25 % означает «подъём 25 см на 1 м пролёта», то есть
+   *   rise = halfSpan × 0,25
+   * Для 4,5 м полупрогона это 1,125 м, а не 0,02 м.
+   *
+   * Из-за этого бага стропило получалось 4,50 м вместо 4,69 м, площадь кровли
+   * 99 м² вместо 109 м², и пиломатериала покупалось на 4 % меньше, чем нужно:
+   * стропило не доходило до конька, и крыша провисала.
+   *
+   * Именно из таких мест, а не из синтаксиса, рождаются «красивые» расчёты.
+   */
+  const rise = halfSpan * (slopePercent / 100);
   const rafterLengthM = Math.sqrt(halfSpan * halfSpan + rise * rise);
 
   // Число стропил: шаг по длине дома × 2 ската, с минимумом 2 на скат.

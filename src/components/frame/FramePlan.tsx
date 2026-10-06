@@ -58,7 +58,12 @@ import { formatByn } from '@/lib/construction';
 
 type ActiveWall = WallId;
 
-export { ActiveWall };
+/*
+ * `export type`, а не `export`: при isolatedModules обычный re-export типа
+ * запрещён — компилятор не может знать, тип это или значение, и требует
+ * явного указания. Без этого tsc останавливал сборку всего проекта.
+ */
+export type { ActiveWall };
 
 export function FramePlan() {
   const form = useFrameStore((s) => s.form);
